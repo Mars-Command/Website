@@ -3,11 +3,24 @@ import tailwindcss from "@tailwindcss/vite";
 import { defineConfig, loadEnv } from "vite";
 
 export default defineConfig(({ mode }) => {
-	const env = loadEnv(mode, process.cwd(), "");
+	const envDir = process.env.MARS_ENV_DIR || process.cwd();
+	const env = loadEnv(mode, envDir, "");
 
 	return {
 		base: process.env.BASE_PATH || env.BASE_PATH || "/",
-		plugins: [react(), tailwindcss()],
+		envDir,
+		plugins: [react(), tailwindcss(), {
+			name: "static-account-route-entries",
+			enforce: "post",
+			generateBundle(_options, bundle) {
+				const index = bundle["index.html"];
+				if (index?.type === "asset") {
+					for (const route of ["auth/login", "account"]) {
+						this.emitFile({ type: "asset", fileName: `${route}/index.html`, source: index.source });
+					}
+				}
+			},
+		}],
 		server: {
 			proxy: {
 				"/api/mcstatus": {

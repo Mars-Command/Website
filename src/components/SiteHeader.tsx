@@ -1,5 +1,6 @@
 import { RadioTower } from "lucide-react";
 import { marsConfig } from "../config/mars";
+import { sitePath } from "../config/account";
 import { pulseTarget } from "../utils/pulseTarget";
 import { StatusBadge } from "./StatusBadge";
 
@@ -32,6 +33,7 @@ export function SiteHeader({ online, checking }: SiteHeaderProps) {
 				</span>
 			</a>
 			<div className="header-state">
+				<a href={sitePath("account")}>Account &amp; profiles</a>
 				<span className="header-channel">
 					<span className="channel-dot" /> PUBLIC
 					COMMS
