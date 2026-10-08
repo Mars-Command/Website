@@ -17,6 +17,7 @@ Useful commands:
 - `npm run dev` starts the Vite development server.
 - `npm test` runs status parsing, cookie API contract, authentication UI, profile UI, and landing regression tests (mock responses only).
 - `npm run lint` runs Oxlint.
+- `npm run check:release` verifies the website's `0.1.0` package/lock versions and any supplied deployment URLs.
 - `npm run build` type-checks and produces the production bundle in `dist/`.
 - `npm run preview` serves the production bundle locally.
 
@@ -26,11 +27,11 @@ Useful commands:
 | --- | --- | --- |
 | `VITE_STATUS_API_URL` | MCStatus.io Java status API base URL, or same-origin proxy prefix | dev: `/api/mcstatus`; production: direct MCStatus.io URL |
 | `VITE_LAUNCHER_DOWNLOAD_URL` | Real launcher artifact URL; must be HTTP(S) | unset, download disabled |
-| `VITE_CLIENT_VERSION` | Launcher version displayed on the page | `0.1.2` |
+| `VITE_CLIENT_VERSION` | Launcher version displayed on the page | `1.3.0` |
 | `VITE_SERVER_ADDRESS` | Public Minecraft server host | `play.nexusgit.info` |
 | `VITE_VOICE_ADDRESS` | Public voice host | `voice.nexusgit.info` |
 | `VITE_USE_MOCK_STATUS` | Development-only mock switch; ignored in production | `false` |
-| `VITE_API_BASE_URL` | Account/backend server origin or base URL **without `/api`**, e.g. `http://localhost:8000` | unset; account operations fail closed |
+| `VITE_API_BASE_URL` | HTTPS account/backend server origin or base URL **without `/api`**; loopback HTTP is allowed for local development | unset; account operations fail closed |
 | `VITE_SPONSORS_URL` | HTTPS `github.com/sponsors/<recipient>` URL | unset; donations explicitly unavailable |
 | `BASE_PATH` | Vite deployment path, such as `/mars/` | `/` |
 | `MARS_ENV_DIR` | Optional process environment variable selecting a different Vite environment-file directory (use an empty project-local directory to avoid local env files during validation) | project root |
@@ -74,13 +75,15 @@ The current five-step install guide is informational. The future Tauri release s
 
 GitHub Pages deploys automatically when changes are pushed to `main`, or manually from the Actions tab with **Deploy to GitHub Pages**. In the repository settings, set **Pages → Build and deployment → Source** to **GitHub Actions**. The workflow builds and publishes `dist/` for the custom domain `https://mars.nexusgit.info/`, with `BASE_PATH=/` and the domain CNAME included in the artifact.
 
+Before deployment, configure the repository Actions variable `VITE_API_BASE_URL` with the production HTTPS backend base (without `/api`). The workflow intentionally fails rather than deploy account UI with this required value unset or malformed. Optionally configure `VITE_SPONSORS_URL` with the verified `https://github.com/sponsors/<recipient>` destination; an unset value keeps donations unavailable. Tests, lint, release/version checks, the production dependency audit, and the production build must all pass before the Pages artifact is uploaded.
+
 To build locally for the custom domain in PowerShell, set `$env:BASE_PATH="/"` before running `npm run build`. Configure `VITE_LAUNCHER_DOWNLOAD_URL` and other public `VITE_*` values in the workflow if needed; GitHub Pages cannot provide a server-side proxy, so the status API uses its public MCStatus.io endpoint directly. Never put secrets in `VITE_*` values.
 
 ## GitHub identity and desktop approval (batch 1)
 
 The landing page remains at `/`; its header links to `/account`, and `/auth/login` is the GitHub identity terminal. Routes respect `BASE_PATH`. No additional routing framework is required.
 
-Set `VITE_API_BASE_URL` explicitly to the backend's HTTP(S) origin/base **without** `/api`. The website appends the contract's `/api/...` paths, sends `credentials: "include"` on all account API requests, and uses browser navigation (not fetch) for `GET /api/auth/github/start`. There is no default live account backend. Invalid or absent configuration, failed requests, and malformed responses are visible errors, never success-shaped empty results.
+Set `VITE_API_BASE_URL` explicitly to the backend's HTTPS origin/base **without** `/api` (loopback HTTP remains available for local development). The website appends the contract's `/api/...` paths, sends `credentials: "include"` on all account API requests, and uses browser navigation (not fetch) for `GET /api/auth/github/start`. There is no default live account backend. Invalid or absent configuration, failed requests, and malformed responses are visible errors, never success-shaped empty results.
 
 Sign-in reads the HttpOnly website session from `GET /api/auth/session`. A signed-in user sees their GitHub avatar, **Continue as** and **Use a different GitHub account**. Desktop links retain `requestId`. The backend callback must navigate to the configured website `/auth/login?requestId=...&authResult=success` or `authResult=error&errorCode=<safe-enumerated-code>`; no provider secrets, raw errors, or tokens belong in that URL. The website intentionally displays generic OAuth failure text rather than arbitrary callback error codes.
 

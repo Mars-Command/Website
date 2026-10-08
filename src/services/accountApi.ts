@@ -1,4 +1,4 @@
-import { accountConfig } from "../config/account";
+import { accountConfig, safeHttpUrl } from "../config/account";
 import type { Profile, ProfileInput, ProfileMod, User } from "../types/account";
 
 export class ApiError extends Error {
@@ -17,19 +17,28 @@ function object(value: unknown): value is Record<string, unknown> {
 }
 
 export function isUser(value: unknown): value is User {
-	return object(value) && typeof value.id === "string" &&
-		typeof value.username === "string" && typeof value.avatarUrl === "string" &&
+	return object(value) && typeof value.id === "string" && !!value.id.trim() &&
+		typeof value.username === "string" && !!value.username.trim() &&
+		typeof value.avatarUrl === "string" &&
+		(!value.avatarUrl || safeHttpUrl(value.avatarUrl) !== null) &&
 		Array.isArray(value.roles) && value.roles.every(role => typeof role === "string");
 }
 
 export function isMod(value: unknown): value is ProfileMod {
-	return object(value) && ["name", "version", "sourceUrl", "sha256"]
-		.every(key => typeof value[key] === "string");
+	return object(value) &&
+		typeof value.name === "string" && !!value.name.trim() &&
+		typeof value.version === "string" && !!value.version.trim() &&
+		typeof value.sourceUrl === "string" &&
+		safeHttpUrl(value.sourceUrl)?.startsWith("https://") === true &&
+		typeof value.sha256 === "string" && /^[a-fA-F0-9]{64}$/.test(value.sha256);
 }
 
 export function isProfile(value: unknown): value is Profile {
-	return object(value) && ["id", "name", "description", "updatedAt"]
-		.every(key => typeof value[key] === "string") &&
+	return object(value) &&
+		typeof value.id === "string" && !!value.id.trim() &&
+		typeof value.name === "string" && !!value.name.trim() &&
+		typeof value.description === "string" &&
+		typeof value.updatedAt === "string" && !Number.isNaN(Date.parse(value.updatedAt)) &&
 		(value.visibility === "private" || value.visibility === "public") &&
 		isUser(value.owner) && Array.isArray(value.mods) && value.mods.every(isMod) &&
 		(value.sourceProfileId === null || typeof value.sourceProfileId === "string");

@@ -1,11 +1,12 @@
 {
 	"name": "mars-command-web",
 	"private": true,
-	"version": "0.0.0",
+	"version": "0.1.0",
 	"type": "module",
 	"scripts": {
 		"dev": "vite",
 		"build": "tsc -b && vite build",
+		"check:release": "node scripts/check-release.mjs",
 		"lint": "oxlint",
 		"test": "vitest run",
 		"preview": "vite preview"

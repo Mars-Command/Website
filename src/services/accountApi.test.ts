@@ -19,6 +19,9 @@ describe("configured public endpoints", () => {
 		expect(configuredApiBase(undefined)).toBeNull();
 		expect(configuredApiBase("")).toBeNull();
 		expect(configuredApiBase("https://backend.example/base/")).toBe("https://backend.example/base");
+		expect(configuredApiBase("http://localhost:8000")).toBe("http://localhost:8000");
+		expect(configuredApiBase("http://127.0.0.1:8000/base/")).toBe("http://127.0.0.1:8000/base");
+		expect(configuredApiBase("http://backend.example")).toBeNull();
 		for (const value of ["https://backend.example/api", "javascript:alert(1)", "https://user:secret@example.com", "https://example.com?token=secret", "//example.com", "https://example.com/#token"]) {
 			expect(configuredApiBase(value)).toBeNull();
 		}
@@ -117,5 +120,9 @@ describe("cookie account API", () => {
 		expect(isProfile(profile)).toBe(true);
 		expect(isProfile({ ...profile, mods: [{}] })).toBe(false);
 		expect(isProfile({ ...profile, description: null })).toBe(false);
+		expect(isProfile({ ...profile, updatedAt: "not-a-date" })).toBe(false);
+		expect(isProfile({ ...profile, mods: [{ ...profile.mods[0], sourceUrl: "javascript:alert(1)" }] })).toBe(false);
+		expect(isProfile({ ...profile, mods: [{ ...profile.mods[0], sha256: "not-a-checksum" }] })).toBe(false);
+		expect(isProfile({ ...profile, owner: { ...user, id: "" } })).toBe(false);
 	});
 });

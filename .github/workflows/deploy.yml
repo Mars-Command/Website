@@ -28,10 +28,24 @@ jobs:
               uses: actions/configure-pages@v5
             - name: Install dependencies
               run: npm ci
+            - name: Check release and deployment configuration
+              run: npm run check:release
+              env:
+                  REQUIRE_DEPLOY_CONFIG: "true"
+                  VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
+                  VITE_SPONSORS_URL: ${{ vars.VITE_SPONSORS_URL }}
+            - name: Run tests
+              run: npm test
+            - name: Run lint
+              run: npm run lint
+            - name: Audit production dependencies
+              run: npm audit --omit=dev
             - name: Build site
               run: npm run build
               env:
                   BASE_PATH: /
+                  VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
+                  VITE_SPONSORS_URL: ${{ vars.VITE_SPONSORS_URL }}
             - name: Upload Pages artifact
               uses: actions/upload-pages-artifact@v3
               with:

@@ -13,7 +13,10 @@ export function configuredApiBase(value: string | undefined): string | null {
 	const safe = safeHttpUrl(value);
 	if (!safe) return null;
 	const url = new URL(safe);
-	if (url.search || url.hash || /\/api\/?$/.test(url.pathname)) return null;
+	const localHttp = url.protocol === "http:" &&
+		["localhost", "127.0.0.1", "[::1]"].includes(url.hostname);
+	if ((url.protocol !== "https:" && !localHttp) ||
+		url.search || url.hash || /\/api\/?$/.test(url.pathname)) return null;
 	return safe.replace(/\/+$/, "");
 }
 
