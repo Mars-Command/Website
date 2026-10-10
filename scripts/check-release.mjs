@@ -1,13 +1,23 @@
 import { readFile } from "node:fs/promises";
 
-const targetVersion = "0.1.0";
+const targetVersion = "0.2.0";
 const manifest = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
 const lock = JSON.parse(await readFile(new URL("../package-lock.json", import.meta.url), "utf8"));
+const clientVersion = "1.4.0";
+const marsConfig = await readFile(new URL("../src/config/mars.ts", import.meta.url), "utf8");
+const envExample = await readFile(new URL("../.env.example", import.meta.url), "utf8");
 const failures = [];
 
 if (manifest.version !== targetVersion) failures.push(`package.json version must be ${targetVersion}`);
 if (lock.version !== targetVersion) failures.push(`package-lock.json version must be ${targetVersion}`);
 if (lock.packages?.[""]?.version !== targetVersion) failures.push(`package-lock.json root package version must be ${targetVersion}`);
+if (!marsConfig.includes(`clientVersion: import.meta.env.VITE_CLIENT_VERSION?.trim() || "${clientVersion}"`)) {
+	failures.push(`launcher display default must be ${clientVersion}`);
+}
+if (!envExample.includes(`VITE_CLIENT_VERSION=${clientVersion}`)) failures.push(`.env.example launcher version must be ${clientVersion}`);
+if (process.env.VITE_CLIENT_VERSION?.trim() && process.env.VITE_CLIENT_VERSION.trim() !== clientVersion) {
+	failures.push(`configured launcher display version must be ${clientVersion}`);
+}
 
 function validApiBase(value) {
 	try {

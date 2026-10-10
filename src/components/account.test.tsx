@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "../App";
 import { copyProfileInput, readLoginQuery, routeFor, validateProfileInput } from "../utils/accountUi";
 import { accountApi, ApiError } from "../services/accountApi";
+import { capsuleApi } from "../services/capsuleApi";
 import type { Profile } from "../types/account";
 import { AccountPage } from "./AccountPage";
 import { AuthLogin } from "./AuthLogin";
@@ -31,6 +32,7 @@ beforeEach(() => {
 	vi.spyOn(accountApi, "session").mockResolvedValue(user);
 	vi.spyOn(accountApi, "profiles").mockImplementation(async mine => mine ? [personal] : [publicProfile]);
 	vi.spyOn(accountApi, "approve").mockResolvedValue();
+	vi.spyOn(capsuleApi, "mine").mockResolvedValue([]);
 });
 afterEach(async () => {
 	await act(async () => root.unmount());
@@ -146,7 +148,7 @@ describe("personal profile operations", () => {
 		await act(async () => form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })));
 		expect(create).toHaveBeenCalledWith({ name: "New mission", description: "", mods: [] });
 		expect(submit).not.toHaveBeenCalled();
-		expect(container.querySelector('input[type="file"]')).toBeNull();
+		expect(form.querySelector('input[type="file"]')).toBeNull();
 	});
 	it("sends public search to the backend without client-side empty-list fallbacks", async () => {
 		await render(<AccountPage />);

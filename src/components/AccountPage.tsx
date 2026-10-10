@@ -6,6 +6,7 @@ import { accountApi, errorMessage } from "../services/accountApi";
 import type { Profile, ProfileInput, ProfileMod } from "../types/account";
 import { AccountShell, Identity, TerminalMessage } from "./AccountShell";
 import { copyProfileInput, validateProfileInput } from "../utils/accountUi";
+import { CapsuleSubmissions } from "./CapsuleSubmissions";
 
 const emptyInput = (): ProfileInput => ({ name: "", description: "", mods: [] });
 const emptyMod = (): ProfileMod => ({ name: "", version: "", sourceUrl: "", sha256: "" });
@@ -103,6 +104,7 @@ export function AccountPage() {
 		{busy && <TerminalMessage>Sending request to mission control…</TerminalMessage>}
 		{error && <TerminalMessage error>{error}</TerminalMessage>}
 		{message && <TerminalMessage>{message}</TerminalMessage>}
+		{user && !loading && !sessionError && <CapsuleSubmissions key={user.id} ownerId={user.id} onSessionExpired={retry} />}
 		{user && !loading && !sessionError && <section aria-labelledby="personal-heading">
 			<h2 id="personal-heading">Your personal profiles</h2>
 			<p>New profiles and public copies are private. Submission is a separate action; backend validation alone determines whether a profile can be published.</p>

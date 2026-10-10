@@ -15,9 +15,9 @@ On Windows PowerShell, copy the example with `Copy-Item .env.example .env.local`
 Useful commands:
 
 - `npm run dev` starts the Vite development server.
-- `npm test` runs status parsing, cookie API contract, authentication UI, profile UI, and landing regression tests (mock responses only).
+- `npm test` runs status parsing, cookie API contract, authentication UI, profile UI, private capsule submission UI, and landing regression tests (mock responses only).
 - `npm run lint` runs Oxlint.
-- `npm run check:release` verifies the website's `0.1.0` package/lock versions and any supplied deployment URLs.
+- `npm run check:release` verifies the website's `0.2.0` package/lock versions, launcher display `1.4.0` defaults/any supplied override, and any supplied deployment URLs.
 - `npm run build` type-checks and produces the production bundle in `dist/`.
 - `npm run preview` serves the production bundle locally.
 
@@ -27,7 +27,7 @@ Useful commands:
 | --- | --- | --- |
 | `VITE_STATUS_API_URL` | MCStatus.io Java status API base URL, or same-origin proxy prefix | dev: `/api/mcstatus`; production: direct MCStatus.io URL |
 | `VITE_LAUNCHER_DOWNLOAD_URL` | Real launcher artifact URL; must be HTTP(S) | unset, download disabled |
-| `VITE_CLIENT_VERSION` | Launcher version displayed on the page | `1.3.0` |
+| `VITE_CLIENT_VERSION` | Launcher version displayed on the page | `1.4.0` |
 | `VITE_SERVER_ADDRESS` | Public Minecraft server host | `play.nexusgit.info` |
 | `VITE_VOICE_ADDRESS` | Public voice host | `voice.nexusgit.info` |
 | `VITE_USE_MOCK_STATUS` | Development-only mock switch; ignored in production | `false` |
@@ -64,6 +64,25 @@ type ServerStatus = {
 ```
 
 The web project does not speak the Minecraft protocol from the browser; it consumes MCStatus.io's public read-only HTTP API, which performs the status query. If MCStatus.io is unavailable, or if traffic needs shared caching or rate limiting, replace `VITE_STATUS_API_URL` with a compatible server-side proxy and keep any upstream credentials there.
+
+## Private artifact submissions (Batch 3)
+
+Signed-in users can reserve and upload one JAR from `/account`, separately from personal profile metadata. Project (120 characters), version (80 characters), and HTTPS source URL (2048 characters, no credentials or fragments) are immutable after reservation. The browser checks `.jar`, nonempty bytes, and a **64 MiB / 67,108,864-byte** maximum; only backend archive validation and its observed SHA-256 establish artifact facts. Limits are operator-configurable: the browser advertises the default 64 MiB and 10-active-submission limits, while the backend is authoritative.
+
+Requires the Batch 3 backend `0.3.0` capsule contract at the configured `VITE_API_BASE_URL`, without `/api`:
+
+- `POST /api/community/capsules` with JSON `{project, version, sourceUrl}` and `Idempotency-Key` reserves an owned release; replays return the same release.
+- `PUT /api/community/capsules/{releaseId}/artifact` sends the **raw File**, not multipart or base64, with `Content-Type: application/java-archive`. Cookie credentials are included. XHR reports transport progress; 100% means bytes sent, **not** backend acceptance.
+- `GET /api/community/capsules/mine` returns `{capsules: [...]}`; `GET /api/community/capsules/{releaseId}` refreshes one owned release.
+- `POST /api/community/capsules/{releaseId}/retry` requests eligible blocked scan work; rejected/expired/withdrawn releases are terminal. `POST /api/community/capsules/{releaseId}/withdraw` confirms terminal withdrawal of an unpublished release.
+
+All singular responses are guarded Capsule records: release/owner IDs, immutable metadata and digest (nullable before binding), state, positive revision, timestamps, nullable evidence/queue summaries, and `publicDownloadAvailable: false`. Evidence must bind the exact artifact digest. Unknown states, malformed lists/errors, wrong owners or release IDs, mutated immutable facts, and contradictory revisions fail closed. Older revisions never replace newer status. No storage paths, worker lease IDs, tokens, public artifact downloads, or installation controls are exposed.
+
+Reservation and JAR selection remain in memory only. After interruption or local cancellation, **refresh first**, then retry the same file/reservation when still reserved; the reservation retry reuses its idempotency key. Identical upload replay is safe; a different JAR cannot replace a bound digest. Metadata/file selection stays locked after a reservation attempt so uncertain network results cannot accidentally reuse a key with different facts. “Start a new submission” discards local retry context, not server records; withdraw abandoned reservations explicitly. Reloading clears the selected file/key; use “Choose JAR for …” on an owned reserved release to attach a file without creating another reservation. Owned submissions remain refreshable and withdrawable. Unbound/failed quarantine expiry defaults to seven days on the backend.
+
+`scan_blocked` explicitly means a trusted scanner is unavailable/unconfigured; the JAR stays **private and unpublished**. `publishable` means workflow eligibility for a future atomic publication step, not a public artifact. There is no production clean fallback and no client-side security scanner.
+
+The authenticated component is recreated on account/session changes; requests are aborted on teardown and late results/progress ignored. HTTP 401 triggers a fresh session check. JSON requests time out after 10 seconds; uploads after 120 seconds. Backend CORS must allow the website's exact origin, cookie credentials, `GET`/`POST`/`PUT`, `Content-Type` and `Idempotency-Key` headers (including preflight for upload progress). Cookie mutation Origin/CSRF policy remains backend-enforced; the browser never invents bearer credentials or sends a caller-supplied digest.
 
 ## Launcher release
 
