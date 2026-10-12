@@ -3,6 +3,7 @@ import { getPersonnelMessage } from "../services/serverStatus";
 import type { ServerStatus } from "../types/server";
 import { pulseTarget } from "../utils/pulseTarget";
 import { StatusBadge } from "./StatusBadge";
+import { TerminalBox, TerminalText } from "./TerminalExperience";
 
 type ServerStatusCardProps = {
 	status: ServerStatus | null;
@@ -36,7 +37,7 @@ export function ServerStatusCard({
 			: `${playerCount} / ${maxPlayers ?? "—"}`;
 
 	return (
-		<section
+		<TerminalBox
 			className="panel status-panel"
 			id="server-status"
 			aria-labelledby="status-heading"
@@ -44,10 +45,10 @@ export function ServerStatusCard({
 			<div className="panel-heading">
 				<div>
 					<p className="eyebrow">
-						01 // COLONY UPLINK
+						<TerminalText>01 / COLONY UPLINK</TerminalText>
 					</p>
 					<h2 id="status-heading">
-						LIVE SERVER STATUS
+						<TerminalText>LIVE SERVER STATUS</TerminalText>
 					</h2>
 				</div>
 				<StatusBadge
@@ -66,40 +67,40 @@ export function ServerStatusCard({
 				/>
 				<div className="status-message">
 					<strong>
-						{checking
+						<TerminalText>{checking
 							? "CONTACTING MARS"
 							: online
 								? "COLONY CONNECTION ESTABLISHED"
-								: "NO SIGNAL FROM COLONY"}
+								: "NO SIGNAL FROM COLONY"}</TerminalText>
 					</strong>
 					<p>
-						{getPersonnelMessage(
+						<TerminalText>{getPersonnelMessage(
 							status,
 							checking,
-						)}
+						)}</TerminalText>
 					</p>
 				</div>
 			</div>
 
-			<div className="status-stats">
+			<TerminalBox framed={false} className="status-stats" aria-label="Personnel and latency readings">
 				<div className="status-stat">
 					<Users size={15} aria-hidden="true" />
-					<span>PERSONNEL</span>
-					<strong>{personnel}</strong>
+					<span><TerminalText>PERSONNEL</TerminalText></span>
+					<strong><TerminalText>{personnel}</TerminalText></strong>
 				</div>
 				<div className="status-stat">
 					<Signal size={15} aria-hidden="true" />
-					<span>LATENCY</span>
+					<span><TerminalText>LATENCY</TerminalText></span>
 					<strong>
-						{status?.latencyMs == null
+						<TerminalText>{status?.latencyMs == null
 							? "—"
-							: `${Math.round(status.latencyMs)} ms`}
+							: `${Math.round(status.latencyMs)} ms`}</TerminalText>
 					</strong>
 				</div>
-			</div>
+			</TerminalBox>
 
 			{status?.motd && (
-				<p className="server-motd">“{status.motd}”</p>
+				<p className="server-motd"><TerminalText>{`“${status.motd}”`}</TerminalText></p>
 			)}
 			{status?.error && !checking && (
 				<p className="status-error">{status.error}</p>
@@ -107,9 +108,9 @@ export function ServerStatusCard({
 
 			<div className="status-footnote">
 				<span>
-					LAST CHECK{" "}
+					<TerminalText>LAST CHECK</TerminalText>{" "}
 					<strong>
-						{formatTime(lastUpdated)}
+						<TerminalText>{formatTime(lastUpdated)}</TerminalText>
 					</strong>
 				</span>
 				<button
@@ -127,9 +128,9 @@ export function ServerStatusCard({
 						size={15}
 						aria-hidden="true"
 					/>
-					<span>REFRESH</span>
+					<span><TerminalText>REFRESH</TerminalText></span>
 				</button>
 			</div>
-		</section>
+		</TerminalBox>
 	);
 }

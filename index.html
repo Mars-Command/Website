@@ -4,22 +4,29 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="theme-color" content="#07090b" />
+  <meta name="theme-color" content="#090909" />
   <meta name="description" content="Live server status and colony transmissions from Mars Command." />
   <meta property="og:title" content="Mars Command // Colony Network" />
   <meta property="og:description"
     content="The red planet has chosen you. Check colony status and mission transmissions." />
-  <link rel="icon" type="image/svg+xml" href="%BASE_URL%favicon.svg" />
+  <link rel="icon" type="image/png" href="%BASE_URL%planet.png" />
+  <link rel="apple-touch-icon" href="%BASE_URL%apple-touch-icon.png" />
+  <link rel="preload" as="image" href="%BASE_URL%planet.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link
-    href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap"
+    href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap"
     rel="stylesheet" />
+  <style>
+    .initial-boot { position: fixed; inset: 0; display: grid; place-items: center; margin: 0; background: #090909; }
+    .initial-boot img { width: clamp(240px, 38vw, 410px); height: auto; image-rendering: pixelated; }
+  </style>
   <title>Mars Command // Colony Network</title>
 </head>
 
 <body>
-  <div id="root"></div>
+  <div id="root"><div class="initial-boot"><img src="%BASE_URL%planet.png" width="1024" height="1024" alt="Loading Mars Command" fetchpriority="high" /></div></div>
+  <noscript><p style="position: fixed; inset: auto 20px 20px; z-index: 101; color: #ededed; font-family: monospace;">Mars Command requires JavaScript for live telemetry and account access. Please enable it to open mission control.</p></noscript>
   <script type="module" src="/src/main.tsx"></script>
 </body>
 

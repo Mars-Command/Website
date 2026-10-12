@@ -1,5 +1,6 @@
 import { AlertTriangle, Check, Info } from "lucide-react";
 import { transmissions } from "../data/transmissions";
+import { TerminalBox, TerminalText } from "./TerminalExperience";
 
 const severityIcon = {
 	warning: AlertTriangle,
@@ -9,25 +10,25 @@ const severityIcon = {
 
 export function TransmissionList() {
 	return (
-		<section
+		<TerminalBox framed={false}
 			className="transmission-section"
+			id="transmissions"
 			aria-labelledby="transmissions-heading"
 		>
 			<div className="section-title-row">
 				<div>
 					<p className="eyebrow">
-						03 // RECENT ACTIVITY
+						<TerminalText>03 / RELEASE UPDATES</TerminalText>
 					</p>
 					<h2 id="transmissions-heading">
-						LATEST TRANSMISSIONS
+						<TerminalText>LATEST TRANSMISSIONS</TerminalText>
 					</h2>
 				</div>
 				<span className="transmission-count">
-					{String(transmissions.length).padStart(
+					<TerminalText>{`${String(transmissions.length).padStart(
 						2,
 						"0",
-					)}{" "}
-					LOGS
+					)} UPDATES`}</TerminalText>
 				</span>
 			</div>
 			<div className="transmission-list">
@@ -37,12 +38,12 @@ export function TransmissionList() {
 							transmission.severity
 						];
 					return (
-						<article
+						<TerminalBox as="article"
 							className={`transmission transmission--${transmission.severity}`}
 							key={transmission.title}
 						>
 							<span className="transmission-index">
-								0{index + 1}
+								<TerminalText>{String(index + 1).padStart(2, "0")}</TerminalText>
 							</span>
 							<Icon
 								size={17}
@@ -51,20 +52,20 @@ export function TransmissionList() {
 							/>
 							<div>
 								<h3>
-									{
+									<TerminalText>{
 										transmission.title
-									}
+									}</TerminalText>
 								</h3>
 								<p>
-									{
+									<TerminalText>{
 										transmission.body
-									}
+									}</TerminalText>
 								</p>
 							</div>
-						</article>
+						</TerminalBox>
 					);
 				})}
 			</div>
-		</section>
+		</TerminalBox>
 	);
 }

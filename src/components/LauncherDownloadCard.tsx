@@ -1,10 +1,11 @@
 import { ArrowDownToLine, ArrowUpRight, Rocket } from "lucide-react";
 import { marsConfig } from "../config/mars";
 import { pulseTarget } from "../utils/pulseTarget";
+import { TerminalBox, TerminalText } from "./TerminalExperience";
 
-export function LauncherDownloadCard() {
+export function LauncherDownloadCard({ guideId = "install-guide" }: { guideId?: string }) {
 	return (
-		<section
+		<TerminalBox
 			className="launcher-panel"
 			id="launcher-panel"
 			aria-labelledby="launcher-heading"
@@ -12,16 +13,15 @@ export function LauncherDownloadCard() {
 			<div className="launcher-copy">
 				<p className="eyebrow">
 					<Rocket size={14} aria-hidden="true" />{" "}
-					CLIENT DEPLOYMENT // DEPLOYMENT CHANNEL
+					<TerminalText>02 / CLIENT DEPLOYMENT</TerminalText>
 				</p>
 				<h2 id="launcher-heading">
-					MARS COMMAND CLIENT
+					<TerminalText>MARS COMMAND CLIENT</TerminalText>
 				</h2>
 				<p className="launcher-subtitle">
-					Synchronised client transport for the
-					Mars server
+					<TerminalText>Your direct connection to the colony. Install, synchronise, launch.</TerminalText>
 				</p>
-				<div className="launcher-actions">
+				<TerminalBox framed={false} className="launcher-actions" aria-label="Client deployment actions">
 					{marsConfig.launcherDownloadUrl ? (
 						<a
 							className="button button-primary"
@@ -40,7 +40,7 @@ export function LauncherDownloadCard() {
 								size={17}
 								aria-hidden="true"
 							/>{" "}
-							DOWNLOAD LAUNCHER
+							<TerminalText>DOWNLOAD LAUNCHER</TerminalText>
 						</a>
 					) : (
 						<button
@@ -52,54 +52,47 @@ export function LauncherDownloadCard() {
 								size={17}
 								aria-hidden="true"
 							/>{" "}
-							LAUNCHER DOWNLOAD COMING
-							SOON
+							<TerminalText>LAUNCHER DOWNLOAD COMING SOON</TerminalText>
 						</button>
 					)}
 					<a
 						className="button button-secondary"
-						href="#install-guide"
+						href={`#${guideId}`}
 						onClick={() =>
 							pulseTarget(
-								"install-guide",
+								guideId,
 							)
 						}
 					>
-						VIEW INSTALL GUIDE{" "}
+						<TerminalText>VIEW INSTALL GUIDE</TerminalText>{" "}
 						<ArrowUpRight
 							size={15}
 							aria-hidden="true"
 						/>
 					</a>
-				</div>
+				</TerminalBox>
 			</div>
-			<div
+			<TerminalBox framed={false}
 				className="launcher-specs"
 				aria-label="Client version information"
 			>
 				<p>
-					<span>CLIENT VERSION</span>
+					<span><TerminalText>CLIENT VERSION</TerminalText></span>
 					<strong>
-						v{marsConfig.clientVersion}
+						<TerminalText>{`v${marsConfig.clientVersion}`}</TerminalText>
 					</strong>
 				</p>
 				<p>
-					<span>GAME</span>
+					<span><TerminalText>GAME</TerminalText></span>
 					<strong>
-						Minecraft{" "}
-						{marsConfig.minecraftVersion}
+						<TerminalText>{`Minecraft ${marsConfig.minecraftVersion}`}</TerminalText>
 					</strong>
 				</p>
 				<p>
-					<span>LOADER</span>
-					<strong>{marsConfig.loader}</strong>
+					<span><TerminalText>LOADER</TerminalText></span>
+					<strong><TerminalText>{marsConfig.loader}</TerminalText></strong>
 				</p>
-			</div>
-			<span className="launcher-stamp">
-				MARS
-				<br />
-				CMD
-			</span>
-		</section>
+			</TerminalBox>
+		</TerminalBox>
 	);
 }

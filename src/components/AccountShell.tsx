@@ -1,23 +1,23 @@
 import type { ReactNode } from "react";
 import { safeHttpUrl, sitePath } from "../config/account";
 import type { User } from "../types/account";
+import { PageExperience, TerminalSequence, TerminalText } from "./TerminalExperience";
 
-export function AccountShell({ title, children }: { title: string; children: ReactNode }) {
-	return <div className="site-shell">
-		<div className="ambient-grid" aria-hidden="true" />
+export function AccountShell({ title, children, ready = true }: { title: string; children: ReactNode; ready?: boolean }) {
+	return <PageExperience ready={ready}><div className="site-shell">
 		<div className="content-wrap account-wrap">
 			<nav className="account-nav" aria-label="Mission control">
 				<a href={sitePath()}>Mars Command home</a>
 				<a href={sitePath("account")}>Account &amp; mod profiles</a>
 				<a href={sitePath("auth/login")}>Sign in</a>
 			</nav>
-			<main className="account-panel">
-				<p className="terminal-label">MARS COMMAND // IDENTITY TERMINAL</p>
-				<h1>{title}</h1>
+			<TerminalSequence><main className="account-panel" id="main-content">
+				<p className="terminal-label"><TerminalText>MARS COMMAND // IDENTITY TERMINAL</TerminalText></p>
+				<h1><TerminalText>{title}</TerminalText></h1>
 				{children}
-			</main>
+			</main></TerminalSequence>
 		</div>
-	</div>;
+	</div></PageExperience>;
 }
 
 export function Identity({ user }: { user: User }) {

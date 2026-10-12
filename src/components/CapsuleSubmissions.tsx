@@ -125,10 +125,13 @@ export function CapsuleSubmissions({ ownerId, onSessionExpired }: { ownerId: str
 	const selected = capsules.find(capsule => capsule.releaseId === reservation);
 	const bound = !!selected?.artifactSha256;
 	const uploadEligible = !selected || selected.state === "reserved";
-	return <section aria-labelledby="capsules-heading">
+	return <section className="capsule-workspace" aria-labelledby="capsules-heading">
 		<h2 id="capsules-heading">Private JAR submissions</h2>
+		<p className="account-help">One JAR per release, up to 64 MiB. Uploads stay private; backend acceptance is separate from sending bytes.</p>
+		<details className="account-disclosure"><summary>Upload limits and privacy</summary>
 		<p>Submit one .jar per immutable release, up to 64 MiB (67,108,864 bytes). The backend validates archive structure, hashes the received bytes, and enforces operator limits (default: 10 active submissions per account).</p>
 		<p>Uploads are quarantined privately. Scanning may be blocked until a trusted provider is configured. Even a completed workflow does not publish a download or install a mod.</p>
+		</details>
 		<button disabled={busy} onClick={() => refresh()}>Refresh submissions</button>
 		{busy && <TerminalMessage>{progress === null ? "Contacting mission control…" :
 			progress === 100 ? "JAR sent; waiting for backend validation and digest confirmation…" : `Uploading JAR: ${progress}%`}</TerminalMessage>}
@@ -163,6 +166,7 @@ export function CapsuleSubmissions({ ownerId, onSessionExpired }: { ownerId: str
 		<ul className="profile-list">{capsules.map(capsule => <li key={capsule.releaseId}>
 			<h3>{capsule.project} — {capsule.version}</h3>
 			<p>{capsuleStatusText[capsule.state]}</p>
+			<details className="account-disclosure"><summary>Release details</summary>
 			<p>Release {capsule.releaseId} // revision {capsule.revision} // {capsule.state}</p>
 			<p>Created: {capsule.createdAt} // Updated: {capsule.updatedAt}</p>
 			<p>Source: {capsule.sourceUrl}</p>
@@ -171,6 +175,7 @@ export function CapsuleSubmissions({ ownerId, onSessionExpired }: { ownerId: str
 				{capsule.queue.nextAttemptAt && ` // Next attempt: ${capsule.queue.nextAttemptAt}`}</p>}
 			{capsule.evidence && <p>Evidence v{capsule.evidence.version}: {capsule.evidence.verdict} // {capsule.evidence.provider} // policy {capsule.evidence.policyVersion}<br />
 				{capsule.evidence.summary}<br />Scanned: {capsule.evidence.scannedAt} // Expires: {capsule.evidence.expiresAt}</p>}
+			</details>
 			<button disabled={busy} onClick={() => refresh(capsule.releaseId)}>Refresh {capsule.project}</button>
 			{capsule.state === "reserved" && reservation !== capsule.releaseId && <button disabled={busy} onClick={() => {
 				reset();

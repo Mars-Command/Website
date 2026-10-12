@@ -4,6 +4,77 @@ A responsive Mars Command colony status site built with React, TypeScript, Vite,
 
 ## Run locally
 
+The loading screen and browser icon share **Petrora Rubra, the Crowned** with the
+desktop client. `public/planet.png` is the 1024x1024 transparent source;
+`public/apple-touch-icon.png` is its 180x180 derivative. The generator command
+and native icon regeneration instructions are in the sibling client's README.
+Both HTML icon links and the loading-screen image respect the configured `BASE_PATH`.
+
+## Terminal interface
+
+The site uses a full-page, monochrome Bash-inspired workspace with a Mars-red
+accent: no simulated desktop window, title bar, or traffic-light controls.
+The planet is visible in the initial HTML, before the JavaScript bundle loads.
+On startup, the screen waits for the document, fonts, planet image, and initial
+telemetry (or account data) to settle, then fades to opacity zero over **1.5 seconds**.
+Only after that fade does the main terminal type its text in document order,
+while the sidebar fades in from top to bottom. Text reserves its final dimensions
+to prevent layout jumps; screen readers receive complete text, not character-by-character
+announcements. Periodic telemetry and newly returned account data update without
+replaying the intro.
+
+Main-content boxes reserve their layout space but stay hidden and inert until
+the typing sequence reaches them. Their SVG border draws over 220 ms before
+their text starts; later panels and action controls no longer appear as empty
+frames on startup.
+
+Each directory item opens a detailed mission file. The bottom prompt types
+`clear`, removes the old output, types `cat <mission-file>`, then types the selected
+view from top to bottom. The sidebar and its live telemetry stay mounted. A new
+click supersedes an unfinished command rather than queuing stale views. Reduced
+motion removes animated command delays. “Skip typing” finishes the current
+transition immediately; selecting another file re-enables animation unless
+reduced motion is requested.
+Server uplink includes live telemetry and the reported server build alongside
+explicitly labelled configured client targets; a running mod inventory and internal
+server metrics are not available from the public feed and are not invented.
+Deployment includes client setup and verification guidance; transmissions explain
+the curated log; the account file describes identity, profile and private-upload
+workflows with links to the existing account/sign-in pages.
+
+The `/account` area has its own terminal directory and mobile menu: account
+dashboard, personal profiles, community profiles, and private submissions.
+Profile lists load when their file is first opened. Creating/editing a profile
+uses a focused editor instead of displaying a form alongside every list.
+Profile drafts, search state, and selected JAR/reservation state survive switching
+files. The submission component stays mounted but hidden/inert outside its view,
+so navigation does not cancel an upload. Its heading/panel can replay the terminal
+reveal without remounting the file input or upload controller.
+
+Private workspace state is keyed to the verified user identity. Signing out,
+reloading, or replacing the identity discards local drafts; session revalidation
+temporarily removes private submission controls and cancels local upload work.
+An interrupted upload may already have reached the backend; refresh after signing
+in before retrying. Public browsing remains available without sign-in, while
+profile copying, editing, submission and desktop approval retain their existing
+backend and explicit-consent requirements.
+
+Transmission entries are curated change notes in
+[src/data/transmissions.ts](src/data/transmissions.ts), shared by the overview and
+the detailed transmissions file. Update this list when features or workflows
+change; it is not an automated deployment feed, server event stream, or health check.
+
+“Skip intro” / “Skip typing” bypass animation, and `prefers-reduced-motion: reduce`
+shows ready content immediately without the fade or typing. Status/network failures
+still use the existing explicit error states; a missing planet image reports its
+failure instead of keeping the loader stuck. Internal account/home navigation
+uses browser history without a document reload; OAuth, downloads, modified clicks,
+and external links retain their native behavior. On mobile, a sticky header
+menu exposes all five mission files plus direct account/sign-in links. Selecting
+a file closes the menu and runs the same terminal transition as desktop navigation.
+Escape, outside interaction, and resizing to desktop dismiss the menu. The main
+terminal appears first; telemetry and the installation guide stack beneath it.
+
 ```sh
 npm install
 cp .env.example .env.local

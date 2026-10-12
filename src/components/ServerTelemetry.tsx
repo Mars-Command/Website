@@ -1,10 +1,12 @@
 import { marsConfig } from "../config/mars";
 import type { ServerStatus } from "../types/server";
+import { TerminalBox, TerminalText } from "./TerminalExperience";
 
 type ServerTelemetryProps = {
 	status: ServerStatus | null;
 	checking: boolean;
 	lastUpdated: string | null;
+	terminal?: boolean;
 };
 
 function displayCount(value: number | null | undefined): string {
@@ -24,7 +26,11 @@ export function ServerTelemetry({
 	status,
 	checking,
 	lastUpdated,
+	terminal = false,
 }: ServerTelemetryProps) {
+	const headingId = terminal ? "uplink-telemetry-heading" : "telemetry-heading";
+	const Container = terminal ? TerminalBox : "section";
+	const text = (value: string) => terminal ? <TerminalText>{value}</TerminalText> : value;
 	const rows = [
 		["HOST", status?.host || marsConfig.serverAddress],
 		["MINECRAFT", marsConfig.minecraftVersion],
@@ -54,17 +60,17 @@ export function ServerTelemetry({
 	] as const;
 
 	return (
-		<section
-			className="panel telemetry-panel"
-			aria-labelledby="telemetry-heading"
+		<Container
+			className={`panel telemetry-panel${terminal ? " telemetry-panel--full" : ""}`}
+			aria-labelledby={headingId}
 		>
 			<div className="panel-heading">
 				<div>
 					<p className="eyebrow">
-						02 // READ-ONLY FEED
+						{text("CONNECTION DETAILS")}
 					</p>
-					<h2 id="telemetry-heading">
-						SERVER TELEMETRY
+					<h2 id={headingId}>
+						{text("SERVER TELEMETRY")}
 					</h2>
 				</div>
 				<span className="telemetry-mark">SYS</span>
@@ -75,18 +81,17 @@ export function ServerTelemetry({
 						className={`telemetry-row ${label === "STATUS" ? `telemetry-row--${value.toLowerCase()}` : ""}`}
 						key={label}
 					>
-						<dt>{label}</dt>
+						<dt>{text(label)}</dt>
 						<dd>
-							<span>::</span>
-							{value}
+							<span className="telemetry-separator">::</span>
+							{text(value)}
 						</dd>
 					</div>
 				))}
 			</dl>
 			<p className="telemetry-note">
-				Only values returned by the public status feed
-				are shown
+				{text("Live status from the public feed. Minecraft, loader and voice targets are configured colony connection details.")}
 			</p>
-		</section>
+		</Container>
 	);
 }

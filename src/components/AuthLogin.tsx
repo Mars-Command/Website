@@ -45,7 +45,7 @@ export function AuthLogin({ search = window.location.search, navigate = (url: st
 		}
 	}
 
-	return <AccountShell title={requestId ? "Authorize your desktop launcher" : "GitHub sign in"}>
+	return <AccountShell title={requestId ? "Authorize your desktop launcher" : "GitHub sign in"} ready={!loading}>
 		{authResult === "error" && <TerminalMessage error>GitHub sign-in did not complete. Try again; no desktop access has been approved.</TerminalMessage>}
 		{authResult === "success" && !approved && <TerminalMessage>GitHub sign-in returned. Checking the website session; desktop approval still requires your confirmation.</TerminalMessage>}
 		{invalidRequest && <TerminalMessage error>Invalid desktop request. Return to the launcher and start sign-in again.</TerminalMessage>}
