@@ -181,6 +181,30 @@ For desktop sign-in, **Continue as** is disabled until the user explicitly confi
 
 The launcher alone initiates `/api/auth/desktop`, retains `deviceCode`, and polls `/api/auth/desktop/poll`. This website never receives or requests a device code or desktop access token. The website can log out its cookie session with `POST /api/auth/logout`. OAuth credentials, role assignment, authorization, cookie security, expiry, and approval binding remain server responsibilities.
 
+### Minecraft arrival confirmation
+
+Minecraft uses the same `/auth/login?requestId=...` page and GitHub OAuth route.
+After login, the page reads the request's **server-derived purpose** from
+`GET /api/auth/requests/{requestId}`. It never trusts a query parameter to decide
+whether to approve a launcher or Minecraft request, and does not fall back to
+desktop approval when metadata is unavailable.
+
+Arrival requests show the player's permanent four-digit callsign and Minecraft
+name. The user must explicitly confirm the shown GitHub identity before the
+page posts `{requestId}` to `/api/auth/minecraft/approve`. Approval shares only
+the account display name and server-approved roles with the Minecraft server;
+it does not grant private-profile or file access.
+
+Success instructs the player to return to Minecraft and confirm the displayed
+account there. Website approval alone is not final linking. No device code,
+server integration key, desktop JWT, or provider token enters this page or its
+URL. Expiry, replay protection, callsign allocation, conflicting account links,
+and in-game finalization are backend responsibilities.
+
+Deploy the updated backend and website together. Normal launcher authorization
+now also checks request-purpose metadata before approving; an older backend
+without that endpoint fails closed rather than approving an unknown request.
+
 ## Personal/community mod profiles
 
 `/account` exposes backend public search (case-insensitive name/description matching is a backend responsibility), authenticated owner profiles, and metadata-only create/edit/delete operations. New profiles are private; copying a public profile POSTs independent metadata with optional `sourceProfileId`, not a shared mutable object. Editing PATCHes name/description/mods only and never visibility or roles. Deletion requires confirmation. Submission is a separate, explicit action through `/api/community/profiles/{id}/submit`, not part of saving or copying.

@@ -1,5 +1,5 @@
 import { accountConfig, safeHttpUrl } from "../config/account";
-import type { Profile, ProfileInput, ProfileMod, User } from "../types/account";
+import type { AuthorizationRequest, Profile, ProfileInput, ProfileMod, User } from "../types/account";
 
 export class ApiError extends Error {
 	status: number;
@@ -22,6 +22,14 @@ export function isUser(value: unknown): value is User {
 		typeof value.avatarUrl === "string" &&
 		(!value.avatarUrl || safeHttpUrl(value.avatarUrl) !== null) &&
 		Array.isArray(value.roles) && value.roles.every(role => typeof role === "string");
+}
+
+export function isAuthorizationRequest(value: unknown): value is AuthorizationRequest {
+	return object(value) && (value.kind === "desktop" || value.kind === "minecraft") &&
+		(value.status === "pending" || value.status === "approved") &&
+		(value.kind === "desktop" ? value.callSign === null && value.playerName === null :
+			typeof value.callSign === "string" && /^[0-9]{4}$/.test(value.callSign) &&
+			typeof value.playerName === "string" && /^[A-Za-z0-9_]{1,16}$/.test(value.playerName));
 }
 
 export function isMod(value: unknown): value is ProfileMod {
@@ -111,6 +119,17 @@ export function createAccountApi(base: string | null, fetcher: typeof fetch = fe
 			const result = await request("/api/auth/desktop/approve", "POST", { requestId });
 			if (!object(result) || result.status !== "approved") {
 				throw new ApiError("Mission control did not confirm desktop approval.");
+			}
+		},
+		async authorizationRequest(requestId: string): Promise<AuthorizationRequest> {
+			const result = await request(`/api/auth/requests/${encodeURIComponent(requestId)}`);
+			if (!isAuthorizationRequest(result)) throw new ApiError("Mission control returned an invalid authorization request.");
+			return result;
+		},
+		async approveMinecraft(requestId: string) {
+			const result = await request("/api/auth/minecraft/approve", "POST", { requestId });
+			if (!object(result) || result.status !== "approved") {
+				throw new ApiError("Mission control did not confirm arrival approval.");
 			}
 		},
 		async profiles(mine: boolean, q = ""): Promise<Profile[]> {

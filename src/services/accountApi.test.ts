@@ -37,6 +37,21 @@ describe("configured public endpoints", () => {
 });
 
 describe("cookie account API", () => {
+	it("reads server-derived request purpose and approves Minecraft without desktop credentials", async () => {
+		const fetcher = vi.fn().mockResolvedValue(json({
+			kind: "minecraft", status: "pending", callSign: "0042", playerName: "Astronaut",
+		}));
+		const api = createAccountApi("https://backend.example", fetcher);
+		expect((await api.authorizationRequest("r1")).callSign).toBe("0042");
+		expect(fetcher).toHaveBeenLastCalledWith("https://backend.example/api/auth/requests/r1",
+			expect.objectContaining({ credentials: "include", method: "GET" }));
+		fetcher.mockResolvedValue(json({ status: "approved" }));
+		await api.approveMinecraft("r1");
+		expect(fetcher).toHaveBeenLastCalledWith("https://backend.example/api/auth/minecraft/approve",
+			expect.objectContaining({ method: "POST", body: '{"requestId":"r1"}' }));
+		fetcher.mockResolvedValue(json({ kind: "minecraft", status: "pending", callSign: 42, playerName: "Astronaut" }));
+		await expect(api.authorizationRequest("r1")).rejects.toThrow("invalid authorization request");
+	});
 	it("fails closed before fetch when not configured", async () => {
 		const fetcher = vi.fn();
 		const api = createAccountApi(null, fetcher);

@@ -5,6 +5,13 @@ export type User = {
 	roles: string[];
 };
 
+export type AuthorizationRequest = {
+	kind: "desktop" | "minecraft";
+	status: "pending" | "approved";
+	callSign: string | null;
+	playerName: string | null;
+};
+
 export type ProfileMod = {
 	name: string;
 	version: string;

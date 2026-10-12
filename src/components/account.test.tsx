@@ -39,6 +39,10 @@ beforeEach(() => {
 	vi.spyOn(accountApi, "session").mockResolvedValue(user);
 	vi.spyOn(accountApi, "profiles").mockImplementation(async mine => mine ? [personal] : [publicProfile]);
 	vi.spyOn(accountApi, "approve").mockResolvedValue();
+	vi.spyOn(accountApi, "approveMinecraft").mockResolvedValue();
+	vi.spyOn(accountApi, "authorizationRequest").mockResolvedValue({
+		kind: "desktop", status: "pending", callSign: null, playerName: null,
+	});
 	vi.spyOn(capsuleApi, "mine").mockResolvedValue([]);
 });
 afterEach(async () => {
@@ -129,6 +133,29 @@ describe("landing and minimal routing", () => {
 });
 
 describe("explicit desktop identity confirmation", () => {
+	it("uses the same login page for Minecraft but requires arrival-specific explicit approval", async () => {
+		vi.mocked(accountApi.authorizationRequest).mockResolvedValue({
+			kind: "minecraft", status: "pending", callSign: "0042", playerName: "Astronaut",
+		});
+		await render(<AuthLogin search="?requestId=r1&authResult=success" />);
+		expect(container.textContent).toContain("Player 0042");
+		expect(container.textContent).toContain("Astronaut");
+		expect(button("approve arrival").disabled).toBe(true);
+		expect(accountApi.approveMinecraft).not.toHaveBeenCalled();
+		await click(container.querySelector<HTMLInputElement>('input[type="checkbox"]')!);
+		await click(button("approve arrival"));
+		expect(accountApi.approveMinecraft).toHaveBeenCalledExactlyOnceWith("r1");
+		expect(accountApi.approve).not.toHaveBeenCalled();
+		expect(container.textContent).toContain("Return to Minecraft and confirm");
+	});
+	it("never falls back to launcher approval when request metadata cannot be verified", async () => {
+		vi.mocked(accountApi.authorizationRequest).mockRejectedValue(new ApiError("Request unavailable"));
+		await render(<AuthLogin search="?requestId=r1" />);
+		expect(container.querySelector('input[type="checkbox"]')).toBeNull();
+		expect(accountApi.approve).not.toHaveBeenCalled();
+		expect(accountApi.approveMinecraft).not.toHaveBeenCalled();
+		expect(button("Retry request check")).toBeDefined();
+	});
 	it("shows session avatar and requires confirmation even on OAuth success", async () => {
 		await render(<AuthLogin search="?requestId=r1&authResult=success" />);
 		expect(container.querySelector(".account-identity img")?.getAttribute("alt")).toBe("astronaut's GitHub avatar");
