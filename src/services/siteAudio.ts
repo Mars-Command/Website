@@ -26,10 +26,10 @@ type SoundState = {
 	message: string;
 };
 const initialState: SoundState = {
-	enabled: false,
+	enabled: true,
 	volume: 0.7,
-	typing: false,
-	unlocked: false,
+	typing: true,
+	unlocked: true,
 	message: "",
 };
 

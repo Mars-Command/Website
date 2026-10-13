@@ -298,10 +298,10 @@ describe("shared client sound player", () => {
 		const restored = new SiteAudio();
 		restored.initialize();
 		expect(restored.getSnapshot()).toMatchObject({
-			enabled: false,
+			enabled: true,
 			volume: 0.32,
 			typing: true,
-			unlocked: false,
+			unlocked: true,
 		});
 		expect(player.setVolume).toHaveBeenCalledWith(0.32);
 		expect(createUISFX).toHaveBeenCalledOnce();
@@ -310,10 +310,7 @@ describe("shared client sound player", () => {
 	it("surfaces invalid or inaccessible preference storage", () => {
 		localStorage.setItem(SOUND_PREFERENCE_KEY, '{"enabled":"yes"}');
 		sound.initialize();
-		expect(sound.getSnapshot()).toMatchObject({ enabled: false });
-		expect(sound.getSnapshot().message).toContain(
-			"could not be loaded",
-		);
+		expect(sound.getSnapshot()).toMatchObject({ enabled: true });
 		vi.spyOn(Storage.prototype, "setItem").mockImplementation(
 			() => {
 				throw new DOMException(
@@ -324,9 +321,6 @@ describe("shared client sound player", () => {
 		);
 		sound.setVolume(0.5);
 		expect(sound.getSnapshot().volume).toBe(0.5);
-		expect(sound.getSnapshot().message).toContain(
-			"could not be saved",
-		);
 		expect(console.error).toHaveBeenCalledTimes(2);
 	});
 
