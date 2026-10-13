@@ -97,6 +97,7 @@ beforeEach(() => {
 		playerName: null,
 	});
 	vi.spyOn(capsuleApi, "mine").mockResolvedValue([]);
+	vi.spyOn(siteAudio, "startIntroFromGesture").mockImplementation(() => {});
 });
 afterEach(async () => {
 	await act(async () => root.unmount());
@@ -118,6 +119,7 @@ async function render(element: React.ReactNode) {
 			.querySelector(".planet-loader img")
 			?.dispatchEvent(new Event("load"));
 		window.dispatchEvent(new Event("load"));
+		window.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }));
 	});
 	await act(
 		async () =>

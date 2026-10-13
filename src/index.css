@@ -989,7 +989,7 @@ section[id] {
 }
 
 .planet-loader-art {
-    width: clamp(240px, 38vw, 410px);
+    width: min(clamp(240px, 38vw, 410px), max(96px, calc(100dvh - 260px)));
     aspect-ratio: 1;
     animation: planet-float 4s ease-in-out infinite;
 }
@@ -1028,6 +1028,41 @@ section[id] {
     height: 4px;
     background: var(--red);
     animation: status-pulse 1s ease-in-out infinite alternate;
+}
+
+.boot-entry {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    margin-top: 24px;
+    padding-inline: 16px;
+    text-align: center;
+}
+
+.boot-entry-hint {
+    margin: 0;
+    color: var(--text);
+    font-size: 11px;
+}
+
+.boot-entry-button {
+    padding: 12px 24px;
+    border: 1px solid var(--red);
+    border-radius: 4px;
+    background: #161616;
+    color: var(--text);
+    font-size: 11px;
+}
+
+.boot-entry-button:hover {
+    color: var(--red);
+}
+
+.boot-entry-note {
+    margin: 0;
+    color: var(--muted);
+    font-size: 9px;
 }
 
 .skip-animation {

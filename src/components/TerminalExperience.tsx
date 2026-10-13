@@ -3,6 +3,7 @@ import {
 	useCallback,
 	useContext,
 	useEffect,
+	useId,
 	useLayoutEffect,
 	useRef,
 	useState,
@@ -32,6 +33,13 @@ const SequenceContext = createContext<
 	((entry: SequenceEntry) => () => void) | null
 >(null);
 const ReplayContext = createContext(0);
+const PageEntryContext = createContext<{ accepted: boolean; accept: () => void } | null>(null);
+
+export function PageEntryProvider({ children }: { children: ReactNode }) {
+	const [accepted, setAccepted] = useState(false);
+	const accept = useCallback(() => setAccepted(true), []);
+	return <PageEntryContext value={{ accepted, accept }}>{children}</PageEntryContext>;
+}
 
 function useReducedMotion() {
 	const [reduced, setReduced] = useState(
@@ -69,6 +77,20 @@ export function PageExperience({
 	ready?: boolean;
 }) {
 	const reduced = useReducedMotion();
+	const gate = useContext(PageEntryContext);
+	const [localAccepted, setLocalAccepted] = useState(false);
+	const accepted = gate?.accepted ?? localAccepted;
+	const accepting = useRef(false);
+	const entryPrompt = useRef<HTMLButtonElement>(null);
+	const pageContent = useRef<HTMLDivElement>(null);
+	const entryHint = useId();
+	const acceptEntry = useCallback(() => {
+		if (accepted || accepting.current) return;
+		accepting.current = true;
+		siteAudio.startIntroFromGesture();
+		if (gate) gate.accept();
+		else setLocalAccepted(true);
+	}, [accepted, gate]);
 	const [phase, setPhase] = useState<"loading" | "fading" | "content">(
 		"loading",
 	);
@@ -100,11 +122,12 @@ export function PageExperience({
 	}, []);
 	const planet = useRef<HTMLImageElement>(null);
 	const intro = useRef<symbol | null>(null);
+	const introWaitsForEntry = useRef(!accepted);
 	const entered = phase === "content";
 	const animate = !reduced && !skipped;
 
 	useLayoutEffect(() => {
-		const id = siteAudio.beginIntro();
+		const id = siteAudio.beginIntro(introWaitsForEntry.current);
 		intro.current = id;
 		return () => {
 			siteAudio.endIntro(id);
@@ -114,14 +137,33 @@ export function PageExperience({
 	useLayoutEffect(() => {
 		if (entered && intro.current)
 			siteAudio.enterIntro(intro.current, animate);
+		if (entered && document.activeElement === document.body) {
+			pageContent.current?.querySelector<HTMLElement>("main")?.focus({ preventScroll: true });
+		}
 	}, [entered, animate]);
 
 	useEffect(() => {
+		if (accepted) return;
+		entryPrompt.current?.focus({ preventScroll: true });
+		const pressEnter = (event: KeyboardEvent) => {
+			if (event.key !== "Enter" || event.repeat || event.defaultPrevented || event.isComposing ||
+				event.ctrlKey || event.altKey || event.metaKey || event.shiftKey) return;
+			if (event.target instanceof Element && event.target.closest(".sound-controls")) return;
+			event.preventDefault();
+			acceptEntry();
+		};
+		window.addEventListener("keydown", pressEnter);
+		return () => window.removeEventListener("keydown", pressEnter);
+	}, [accepted, acceptEntry]);
+
+	useEffect(() => {
+		if (!accepted) return;
+		const timer = window.setTimeout(() => setBootElapsed(true), PLANET_BOOT_MS - PLANET_FADE_MS);
+		return () => window.clearTimeout(timer);
+	}, [accepted]);
+
+	useEffect(() => {
 		let active = true;
-		const timer = window.setTimeout(
-			() => setBootElapsed(true),
-			PLANET_BOOT_MS - PLANET_FADE_MS,
-		);
 		const loaded = () => setPageLoaded(true);
 		window.addEventListener("load", loaded);
 		if (document.readyState === "complete") loaded();
@@ -135,7 +177,6 @@ export function PageExperience({
 		}
 		return () => {
 			active = false;
-			window.clearTimeout(timer);
 			window.removeEventListener("load", loaded);
 		};
 	}, []);
@@ -143,6 +184,7 @@ export function PageExperience({
 	useEffect(() => {
 		if (
 			phase === "loading" &&
+			accepted &&
 			pageLoaded &&
 			fontsLoaded &&
 			planetLoaded &&
@@ -172,6 +214,7 @@ export function PageExperience({
 		}
 	}, [
 		phase,
+		accepted,
 		pageLoaded,
 		fontsLoaded,
 		planetLoaded,
@@ -255,7 +298,9 @@ export function PageExperience({
 						}
 					>
 						<span className="boot-indicator" />
-						{phase === "fading"
+						{!accepted
+							? "uplink standing by // awaiting operator"
+							: phase === "fading"
 							? "uplink ready // opening terminal"
 							: "initialising colony uplink"}
 					</p>
@@ -264,13 +309,20 @@ export function PageExperience({
 							className="terminal-error"
 							role="alert"
 						>
-							Planet image
-							unavailable. Opening
-							mission control without
-							it.
+							Planet image unavailable. Mission control can open without it.
 						</p>
 					)}
-					<button
+					{!accepted && <div className="boot-entry">
+						<p id={entryHint} className="boot-entry-hint" role="status">
+							Press Enter to access mission control
+						</p>
+						<button ref={entryPrompt} type="button" className="boot-entry-button"
+							aria-describedby={entryHint} onClick={acceptEntry}>
+							Enter mission control
+						</button>
+						<p className="boot-entry-note">Or click / tap to begin</p>
+					</div>}
+					{accepted && <button
 						className="skip-animation"
 						onClick={() => setSkipped(true)}
 						disabled={skipped}
@@ -278,10 +330,11 @@ export function PageExperience({
 						{skipped
 							? "waiting for uplink..."
 							: "Skip intro"}
-					</button>
+					</button>}
 				</div>
 			)}
 			<div
+				ref={pageContent}
 				className={`page-content${entered ? " is-entered" : ""}`}
 				inert={!entered}
 				aria-hidden={!entered}

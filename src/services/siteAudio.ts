@@ -53,6 +53,7 @@ export class SiteAudio {
 		id: symbol;
 		entered: boolean;
 		started: boolean;
+		waitingForEntry: boolean;
 	} | null = null;
 	private audioVersion = 0;
 	private owners = 0;
@@ -287,7 +288,8 @@ export class SiteAudio {
 		if (
 			!event.isTrusted ||
 			!this.state.enabled ||
-			this.state.unlocked
+			this.state.unlocked ||
+			this.intro?.waitingForEntry
 		)
 			return;
 		if (
@@ -498,12 +500,13 @@ export class SiteAudio {
 		);
 	}
 
-	beginIntro() {
+	beginIntro(waitingForEntry = false) {
 		const id = Symbol();
 		this.intro = {
 			id,
 			entered: false,
 			started: false,
+			waitingForEntry,
 		};
 		return id;
 	}
@@ -562,72 +565,38 @@ export class SiteAudio {
 			});
 	}
 
+	private playOpening(retry = false) {
+		if (!this.intro || this.intro.entered || this.intro.waitingForEntry ||
+			(this.intro.started && !retry)) return false;
+		if (!this.opening) {
+			this.opening = new Audio(sitePath("sounds/opening.mp3"));
+			this.newPage = new Audio(sitePath("sounds/new_page.mp3"));
+			for (const audio of [this.opening, this.newPage]) {
+				audio.preload = "auto";
+				audio.addEventListener("error", () => {
+					if (audio === this.opening || audio === this.newPage) {
+						this.update({ unlocked: false });
+						this.report("An intro sound is unavailable. Mission control still works without it.", audio.error);
+					}
+				});
+			}
+		}
+		if (!this.intro.started) this.opening.currentTime = 0;
+		this.intro.started = true;
+		this.playCustom(this.opening);
+		return true;
+	}
+
+	startIntroFromGesture() {
+		if (this.intro) this.intro.waitingForEntry = false;
+		if (this.fromGesture()) this.playOpening();
+	}
+
 	enableFromGesture() {
 		this.update({ message: "" });
 		this.setEnabled(true);
-		const player =
-			this.fromGesture();
-		if (!player) return;
-		if (
-			this.intro &&
-			!this.intro.entered
-		) {
-			if (!this.opening) {
-				this.opening =
-					new Audio(
-						sitePath(
-							"sounds/opening.mp3",
-						),
-					);
-				this.newPage =
-					new Audio(
-						sitePath(
-							"sounds/new_page.mp3",
-						),
-					);
-				for (const audio of [
-					this.opening,
-					this.newPage,
-				]) {
-					audio.preload =
-						"auto";
-					audio.addEventListener(
-						"error",
-						() => {
-							if (
-								audio ===
-									this
-										.opening ||
-								audio ===
-									this
-										.newPage
-							) {
-								this.update(
-									{
-										unlocked: false,
-									},
-								);
-								this.report(
-									"An intro sound is unavailable. Mission control still works without it.",
-									audio.error,
-								);
-							}
-						},
-					);
-				}
-			}
-			if (!this.intro.started)
-				this.opening.currentTime = 0;
-			this.intro.started = true;
-			this.playCustom(
-				this.opening,
-			);
-		} else {
-			this.play(
-				player,
-				"toggle-on",
-			);
-		}
+		const player = this.fromGesture();
+		if (player && !this.playOpening(true)) this.play(player, "toggle-on");
 	}
 
 	private input = (event: Event) => {

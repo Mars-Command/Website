@@ -41,6 +41,7 @@ export function AccountShell({
 					</nav>
 					<TerminalSequence>
 						<main
+							tabIndex={-1}
 							className="account-panel"
 							id="main-content"
 						>

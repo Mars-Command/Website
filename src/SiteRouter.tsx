@@ -3,6 +3,7 @@ import { AccountPage } from "./components/AccountPage";
 import { AccountShell } from "./components/AccountShell";
 import { AuthLogin } from "./components/AuthLogin";
 import { SoundSettings } from "./components/SoundSettings";
+import { PageEntryProvider } from "./components/TerminalExperience";
 import { siteAudio } from "./services/siteAudio";
 import { routeFor } from "./utils/accountUi";
 
@@ -110,10 +111,10 @@ export function SiteRouter() {
 			</AccountShell>
 		);
 	return (
-		<>
+		<PageEntryProvider>
 			<SoundSettings />
 			{page}
-		</>
+		</PageEntryProvider>
 	);
 }
 import { useEffect, useState } from "react";

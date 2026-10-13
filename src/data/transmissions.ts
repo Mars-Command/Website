@@ -7,8 +7,13 @@ export type Transmission = {
 export const transmissions: Transmission[] = [
 	{
 		severity: "info",
+		title: "Operator-confirmed terminal entry added",
+		body: "Press Enter or activate the on-screen entry button to begin the four-second intro. The planet screen waits for confirmation; internal navigation does not ask again. Opening audio starts with entry and finishes naturally.",
+	},
+	{
+		severity: "info",
 		title: "Optional colony interface sounds added",
-		body: "Sound is enabled by default for restrained sci-fi navigation, confirmed account actions, and private-upload feedback. Playback starts after your first interaction; saved mute, volume, and typing preferences are respected. Audio never replaces visual status.",
+		body: "Sound is enabled by default for restrained sci-fi navigation, confirmed account actions, and private-upload feedback. Intro playback starts when you enter mission control; saved mute, volume, and typing preferences are respected. Audio never replaces visual status.",
 	},
 	{
 		severity: "success",

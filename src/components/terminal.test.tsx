@@ -9,6 +9,7 @@ import { useServerStatus } from "../hooks/useServerStatus";
 import { siteAudio } from "../services/siteAudio";
 import {
 	PageExperience,
+	PageEntryProvider,
 	PLANET_BOOT_MS,
 	PLANET_FADE_MS,
 	TerminalBox,
@@ -32,6 +33,7 @@ beforeEach(() => {
 		}
 	).IS_REACT_ACT_ENVIRONMENT = true;
 	vi.useFakeTimers();
+	vi.spyOn(siteAudio, "startIntroFromGesture").mockImplementation(() => {});
 	reduced = false;
 	vi.stubGlobal("matchMedia", () => ({
 		matches: reduced,
@@ -114,7 +116,7 @@ function Screen({
 		<StrictMode>
 			<PageExperience ready={ready}>
 				<TerminalSequence>
-					<main>
+					<main tabIndex={-1}>
 						<p>
 							<TerminalText>
 								{first}
@@ -135,8 +137,14 @@ function Screen({
 		</StrictMode>
 	);
 }
-async function render(props: { ready?: boolean; first?: string } = {}) {
+async function render(props: { ready?: boolean; first?: string } = {}, admit = true) {
 	await act(async () => root.render(<Screen {...props} />));
+	if (admit) await pressEntry();
+}
+async function pressEntry(key = "Enter", init: KeyboardEventInit = {}) {
+	await act(async () => {
+		window.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true, ...init }));
+	});
 }
 async function imageEvent(type = "load") {
 	const image = container.querySelector(".planet-loader img");
@@ -164,6 +172,140 @@ function click(text: string) {
 }
 
 describe("planet boot and terminal reveal", () => {
+	it("waits indefinitely for Enter or the entry button even when all resources are ready", async () => {
+		await render({}, false);
+		await imageEvent();
+		await advance(60000);
+		expect(container.querySelector("[data-phase]")?.getAttribute("data-phase")).toBe("loading");
+		expect(container.querySelector(".page-content")?.hasAttribute("inert")).toBe(true);
+		expect(container.querySelector(".is-entered")).toBeNull();
+		expect(container.textContent).toContain("Press Enter to access mission control");
+		expect(container.textContent).not.toContain("Skip intro");
+		expect(document.activeElement).toBe(container.querySelector(".boot-entry-button"));
+		expect(siteAudio.startIntroFromGesture).not.toHaveBeenCalled();
+		await pressEntry("a");
+		await pressEntry("Enter", { repeat: true });
+		await pressEntry("Enter", { ctrlKey: true });
+		await act(async () => {
+			container.querySelector<HTMLElement>(".boot-wordmark")!.click();
+			const prevented = new KeyboardEvent("keydown", { key: "Enter", cancelable: true });
+			prevented.preventDefault();
+			window.dispatchEvent(prevented);
+		});
+		expect(container.querySelector(".boot-entry-button")).not.toBeNull();
+		expect(siteAudio.startIntroFromGesture).not.toHaveBeenCalled();
+		await pressEntry();
+		await pressEntry();
+		expect(siteAudio.startIntroFromGesture).toHaveBeenCalledOnce();
+		expect(container.querySelector(".boot-entry-button")).toBeNull();
+		await enterTerminal();
+		expect(container.querySelector(".planet-loader")).toBeNull();
+		expect(document.activeElement).toBe(container.querySelector("main"));
+	});
+
+	it("requires entry with reduced motion, then opens ready content immediately via the tap/click button", async () => {
+		reduced = true;
+		const frame = vi.fn(() => 0);
+		vi.stubGlobal("requestAnimationFrame", frame);
+		await render({}, false);
+		await imageEvent();
+		await advance(30000);
+		expect(container.querySelector(".planet-loader")).not.toBeNull();
+		await click("Enter mission control");
+		expect(container.querySelector(".planet-loader")).toBeNull();
+		expect(lines().every(line => line.classList.contains("is-typed"))).toBe(true);
+		expect(frame).not.toHaveBeenCalled();
+		expect(siteAudio.startIntroFromGesture).toHaveBeenCalledOnce();
+	});
+
+	it("does not steal focus from a control used while the intro is running", async () => {
+		await render();
+		await imageEvent();
+		const soundControl = document.createElement("button");
+		soundControl.className = "sound-controls";
+		document.body.append(soundControl);
+		await act(async () => soundControl.focus());
+		await enterTerminal();
+		expect(document.activeElement).toBe(soundControl);
+		soundControl.remove();
+	});
+
+	it("starts its four-second boot budget at entry rather than consuming it while waiting", async () => {
+		await render({}, false);
+		await imageEvent();
+		await advance(30000);
+		await pressEntry();
+		await advance(PLANET_BOOT_MS - PLANET_FADE_MS - 1);
+		expect(container.querySelector("[data-phase]")?.getAttribute("data-phase")).toBe("loading");
+		await advance(1);
+		await advance(16);
+		expect(container.querySelector("[data-phase]")?.getAttribute("data-phase")).toBe("fading");
+		await advance(PLANET_FADE_MS - 1);
+		expect(container.querySelector(".is-entered")).toBeNull();
+		await advance(1);
+		expect(container.querySelector(".planet-loader")).toBeNull();
+	});
+
+	it("allows early entry and later skipping without bypassing data readiness", async () => {
+		await render({ ready: false }, false);
+		await imageEvent();
+		await click("Enter mission control");
+		await click("Skip intro");
+		await advance(10000);
+		expect(container.querySelector(".planet-loader")).not.toBeNull();
+		await render({}, false);
+		expect(container.querySelector(".planet-loader")).toBeNull();
+		expect(siteAudio.startIntroFromGesture).toHaveBeenCalledOnce();
+	});
+
+	it("does not treat Enter on the sound settings as page-entry confirmation", async () => {
+		await render({}, false);
+		const soundControl = document.createElement("button");
+		soundControl.className = "sound-controls";
+		document.body.append(soundControl);
+		await act(async () => soundControl.dispatchEvent(new KeyboardEvent("keydown", {
+			key: "Enter", bubbles: true, cancelable: true,
+		})));
+		expect(container.querySelector(".boot-entry-button")).not.toBeNull();
+		expect(siteAudio.startIntroFromGesture).not.toHaveBeenCalled();
+		soundControl.remove();
+	});
+
+	it("removes the waiting keyboard listener and restores scrolling on unmount", async () => {
+		const add = vi.spyOn(window, "addEventListener");
+		const remove = vi.spyOn(window, "removeEventListener");
+		await render({}, false);
+		await imageEvent();
+		const registered = add.mock.calls.find(([name]) => name === "keydown")!;
+		await act(async () => root.unmount());
+		expect(remove).toHaveBeenCalledWith(...registered);
+		expect(document.body.style.overflow).toBe("");
+		expect(vi.getTimerCount()).toBe(0);
+		root = createRoot(container);
+	});
+
+	it("requires confirmation only once per document, but resets for a fresh app mount", async () => {
+		reduced = true;
+		const route = (name: string) => <StrictMode><PageEntryProvider>
+			<PageExperience key={name}><TerminalSequence><TerminalText>{name}</TerminalText></TerminalSequence></PageExperience>
+		</PageEntryProvider></StrictMode>;
+		await act(async () => root.render(route("first page")));
+		await imageEvent();
+		await pressEntry();
+		expect(container.querySelector(".planet-loader")).toBeNull();
+		await act(async () => root.render(route("second page")));
+		await imageEvent();
+		expect(container.querySelector(".planet-loader")).toBeNull();
+		expect(container.textContent).toContain("second page");
+		expect(siteAudio.startIntroFromGesture).toHaveBeenCalledOnce();
+		await act(async () => root.unmount());
+		root = createRoot(container);
+		await act(async () => root.render(route("new document")));
+		await imageEvent();
+		expect(container.querySelector(".boot-entry-button")).not.toBeNull();
+		expect(container.querySelector(".is-entered")).toBeNull();
+	});
+
 	it("keeps a ready page loading for about four seconds including the fade", async () => {
 		await render();
 		await imageEvent();
@@ -431,6 +573,7 @@ describe("planet boot and terminal reveal", () => {
 		);
 		const first = container.querySelector("#first-box")!;
 		const second = container.querySelector("#second-box")!;
+		await pressEntry();
 		await imageEvent();
 		await enterTerminal();
 		await advance(80);
@@ -462,6 +605,7 @@ async function renderApp() {
 			</StrictMode>,
 		),
 	);
+	await pressEntry();
 }
 async function openApp() {
 	await renderApp();

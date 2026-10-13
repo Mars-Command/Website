@@ -624,6 +624,45 @@ describe("shared client sound player", () => {
 });
 
 describe("gesture-started original intro tracks", () => {
+	it("keeps the opening silent until the explicit page-entry action, then starts it idempotently", () => {
+		vi.spyOn(document, "addEventListener");
+		const id = sound.beginIntro(true);
+		const detach = sound.attach();
+		trustedActivation("pointerup");
+		trustedActivation("keydown");
+		expect(createUISFX).not.toHaveBeenCalled();
+		expect(HTMLMediaElement.prototype.play).not.toHaveBeenCalled();
+		sound.startIntroFromGesture();
+		sound.startIntroFromGesture();
+		expect(createUISFX).toHaveBeenCalledOnce();
+		expect(contexts[0].resume).toHaveBeenCalledOnce();
+		expect(HTMLMediaElement.prototype.play).toHaveBeenCalledOnce();
+		expect(player.play).not.toHaveBeenCalled();
+		sound.enterIntro(id, true);
+		expect(HTMLMediaElement.prototype.play).toHaveBeenCalledTimes(2);
+		expect(HTMLMediaElement.prototype.pause).not.toHaveBeenCalled();
+		detach();
+	});
+
+	it("does not override a saved mute when entering the page", () => {
+		localStorage.setItem(SOUND_PREFERENCE_KEY, JSON.stringify({ enabled: false, volume: 0.4, typing: false }));
+		sound.beginIntro(true);
+		sound.startIntroFromGesture();
+		expect(sound.getSnapshot()).toMatchObject({ enabled: false, volume: 0.4, typing: false, unlocked: false });
+		expect(createUISFX).not.toHaveBeenCalled();
+		expect(HTMLMediaElement.prototype.play).not.toHaveBeenCalled();
+	});
+
+	it("allows sound preferences before entry without starting a premature opening", () => {
+		sound.beginIntro(true);
+		sound.enableFromGesture();
+		expect(player.play).toHaveBeenCalledExactlyOnceWith("toggle-on", undefined);
+		expect(HTMLMediaElement.prototype.play).not.toHaveBeenCalled();
+		sound.startIntroFromGesture();
+		expect(HTMLMediaElement.prototype.play).toHaveBeenCalledOnce();
+		expect(player.play).toHaveBeenCalledOnce();
+	});
+
 	it("does not queue a missed typing cue when sound is re-enabled after entry", () => {
 		const id = sound.beginIntro();
 		sound.enableFromGesture();

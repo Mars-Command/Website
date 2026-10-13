@@ -15,8 +15,15 @@ Both HTML icon links and the loading-screen image respect the configured `BASE_P
 The site uses a full-page, monochrome Bash-inspired workspace with a Mars-red
 accent: no simulated desktop window, title bar, or traffic-light controls.
 The planet is visible in the initial HTML, before the JavaScript bundle loads.
-On startup, the screen waits for the document, fonts, planet image, and initial
-telemetry (or account data) to settle. The normal intro lasts approximately
+On initial page load, the planet screen stays visible until the visitor presses
+**Enter** or clicks/taps **Enter mission control**. Other keys, pointer activity,
+and changing sound preferences do not grant entry. The prompt receives keyboard
+focus and remains available even with reduced motion. The main terminal receives
+focus after opening unless the visitor has focused another control. Confirmation is remembered
+only for the current document: internal navigation does not ask again, while
+reloading or opening a new tab does.
+Document, fonts, planet image, and initial telemetry (or account data) load while
+the prompt waits. The normal intro starts at confirmation and lasts approximately
 **four seconds**, including its **1.5-second** fade to opacity zero. Slow
 readiness checks can extend that duration; skip and reduced-motion behavior
 remain immediate once data and assets are ready.
@@ -67,8 +74,9 @@ Transmission entries are curated change notes in
 the detailed transmissions file. Update this list when features or workflows
 change; it is not an automated deployment feed, server event stream, or health check.
 
-“Skip intro” / “Skip typing” bypass animation, and `prefers-reduced-motion: reduce`
-shows ready content immediately without the fade or typing. Status/network failures
+After entry confirmation, “Skip intro” / “Skip typing” bypass animation, and
+`prefers-reduced-motion: reduce` shows ready content immediately without the fade
+or typing. Neither bypasses the initial entry gate or data readiness. Status/network failures
 still use the existing explicit error states; a missing planet image reports its
 failure instead of keeping the loader stuck. Internal account/home navigation
 uses browser history without a document reload; OAuth, downloads, modified clicks,
@@ -91,8 +99,8 @@ no external audio service or per-click network request is used.
 
 Sound is **enabled by default**, including local typing feedback, at 70% volume.
 Saved mute, volume, and typing preferences always take precedence. Audio never
-autoplays: the first genuine click, tap, or key press resumes the retained Web
-Audio context without requiring a separate Enable sound click. Until
+autoplays: pressing Enter or activating the entry button resumes the retained
+Web Audio context without requiring a separate Enable sound click. Until
 then, asynchronous feedback is discarded rather than queued. **Mute sound**
 in the bottom-left corner stops all active audio immediately; **Enable sound**
 restores it. **Sound settings** persists enabled state,
@@ -100,8 +108,8 @@ volume, and optional typing sounds in `mars-command:sound` local storage.
 Storage and playback failures appear as textual status and are logged.
 Reduced motion remains a separate preference and does not mute audio.
 
-If the first interaction occurs during the loading screen while sound is
-enabled, `public/sounds/opening.mp3` starts from that gesture and continues
+When entry is confirmed while sound is enabled, `public/sounds/opening.mp3`
+starts from that gesture and continues
 through the loader's removal to its
 natural end (about 5.83 seconds). `public/sounds/new_page.mp3` starts once with
 the initial typing reveal, without cutting off the opening track. Enabling
