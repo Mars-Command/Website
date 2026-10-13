@@ -89,17 +89,20 @@ and deliberate file transitions better than arcade's brighter, denser texture
 or mechanical's industrial detents. Runtime cues are synthesized locally;
 no external audio service or per-click network request is used.
 
-Use **Enable sound** in the bottom-left corner. Sound is off by default and
-never autoplays, even when an enabled preference is restored after reloading.
-The first genuine activation resumes the retained Web Audio context. Until
+Sound is **enabled by default**, including local typing feedback, at 70% volume.
+Saved mute, volume, and typing preferences always take precedence. Audio never
+autoplays: the first genuine click, tap, or key press resumes the retained Web
+Audio context without requiring a separate Enable sound click. Until
 then, asynchronous feedback is discarded rather than queued. **Mute sound**
-stops all active audio immediately. **Sound settings** persists enabled state,
+in the bottom-left corner stops all active audio immediately; **Enable sound**
+restores it. **Sound settings** persists enabled state,
 volume, and optional typing sounds in `mars-command:sound` local storage.
 Storage and playback failures appear as textual status and are logged.
 Reduced motion remains a separate preference and does not mute audio.
 
-If sound is enabled during the loading screen, `public/sounds/opening.mp3`
-starts from that gesture and continues through the loader's removal to its
+If the first interaction occurs during the loading screen while sound is
+enabled, `public/sounds/opening.mp3` starts from that gesture and continues
+through the loader's removal to its
 natural end (about 5.83 seconds). `public/sounds/new_page.mp3` starts once with
 the initial typing reveal, without cutting off the opening track. Enabling
 sound after loading does not replay a stale opening or queue a missed typing
@@ -121,7 +124,7 @@ fallback.
 | Explicit status refresh | `loading`, then `success` / `error` |
 | Visible profile or submission request / approval | Quiet `processing` / `connecting`, then its actual outcome |
 | Sound or typing preference enabled | `toggle-on`; disabling typing uses `toggle-off` |
-| Opt-in local text-entry input | Brief `typing`, once per trusted input event at low volume, without a cooldown |
+| Local text-entry input while typing sounds are enabled | Brief `typing`, once per trusted input event at low volume, without a cooldown |
 | Confirmed website logout | Stop all audio, then `disconnect` |
 
 No sounds are added to hover, scrolling, background polling, live telemetry,

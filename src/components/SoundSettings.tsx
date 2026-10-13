@@ -8,7 +8,6 @@ export function SoundSettings() {
 		siteAudio.getServerSnapshot,
 	);
 	useEffect(() => siteAudio.attach(), []);
-	const audible = sound.enabled && sound.unlocked;
 	return (
 		<div
 			className="sound-controls"
@@ -19,17 +18,17 @@ export function SoundSettings() {
 				type="button"
 				className="skip-animation sound-toggle"
 				onClick={() =>
-					audible
+					sound.enabled
 						? siteAudio.setEnabled(false)
 						: siteAudio.enableFromGesture()
 				}
 				title={
 					sound.enabled && !sound.unlocked
-						? "Your browser needs a user gesture to enable audio"
+						? "Sound is on. Playback starts after your first interaction."
 						: undefined
 				}
 			>
-				{audible ? "Mute sound" : "Enable sound"}
+				{sound.enabled ? "Mute sound" : "Enable sound"}
 			</button>
 			<details className="sound-settings">
 				<summary>Sound settings</summary>
@@ -93,6 +92,15 @@ export function SoundSettings() {
 				>
 					{sound.message}
 				</p>
+			)}
+			{sound.enabled && !sound.unlocked && sound.message && (
+				<button
+					type="button"
+					className="skip-animation sound-toggle"
+					onClick={() => siteAudio.enableFromGesture()}
+				>
+					Enable sound
+				</button>
 			)}
 		</div>
 	);

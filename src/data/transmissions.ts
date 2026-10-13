@@ -8,7 +8,7 @@ export const transmissions: Transmission[] = [
 	{
 		severity: "info",
 		title: "Optional colony interface sounds added",
-		body: "Enable sound for restrained sci-fi navigation, confirmed account actions, and private-upload feedback. Volume and typing preferences are saved; audio never starts automatically or replaces visual status.",
+		body: "Sound is enabled by default for restrained sci-fi navigation, confirmed account actions, and private-upload feedback. Playback starts after your first interaction; saved mute, volume, and typing preferences are respected. Audio never replaces visual status.",
 	},
 	{
 		severity: "success",

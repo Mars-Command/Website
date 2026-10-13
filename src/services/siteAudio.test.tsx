@@ -110,7 +110,252 @@ afterEach(async () => {
 	vi.unstubAllGlobals();
 });
 
+function trustedActivation(
+	type: "pointerup" | "keydown",
+	target: EventTarget | null = null,
+	init: KeyboardEventInit = {},
+) {
+	const original =
+		type === "keydown"
+			? new KeyboardEvent(type, {
+					key: "Enter",
+					...init,
+				})
+			: new Event(type);
+	const event = new Proxy(original, {
+		get(source, property) {
+			if (
+				property === "isTrusted"
+			)
+				return true;
+			if (property === "target")
+				return target;
+			return Reflect.get(
+				source,
+				property,
+				source,
+			);
+		},
+	});
+	const listener = vi
+		.mocked(
+			document.addEventListener,
+		)
+		.mock.calls.find(
+			([name]) => name === type,
+		)?.[1];
+	if (!listener)
+		throw new Error(
+			`Missing ${type} activation listener`,
+		);
+	if (typeof listener === "function")
+		listener.call(document, event);
+	else listener.handleEvent(event);
+}
+
+describe("default-enabled audio activation", () => {
+	it.each([
+		"pointerup",
+		"keydown",
+	] as const)(
+		"unlocks once from the first trusted %s without an extra click cue",
+		async (type) => {
+			vi.spyOn(
+				document,
+				"addEventListener",
+			);
+			const detach =
+				sound.attach();
+			expect(
+				contexts,
+			).toHaveLength(0);
+			trustedActivation(type);
+			expect(
+				contexts,
+			).toHaveLength(1);
+			expect(
+				contexts[0].resume,
+			).toHaveBeenCalledOnce();
+			expect(
+				player.play,
+			).not.toHaveBeenCalled();
+			trustedActivation(type);
+			expect(
+				contexts,
+			).toHaveLength(1);
+			expect(
+				contexts[0].resume,
+			).toHaveBeenCalledOnce();
+			detach();
+			await Promise.resolve();
+		},
+	);
+
+	it("starts the opening on a loading-screen interaction, without restarting it on later gestures", () => {
+		vi.spyOn(
+			document,
+			"addEventListener",
+		);
+		const id = sound.beginIntro();
+		const detach = sound.attach();
+		trustedActivation("pointerup");
+		trustedActivation("keydown");
+		expect(
+			HTMLMediaElement.prototype
+				.play,
+		).toHaveBeenCalledOnce();
+		expect(
+			player.play,
+		).not.toHaveBeenCalled();
+		sound.enterIntro(id, true);
+		expect(
+			HTMLMediaElement.prototype
+				.play,
+		).toHaveBeenCalledTimes(2);
+		expect(
+			HTMLMediaElement.prototype
+				.pause,
+		).not.toHaveBeenCalled();
+		detach();
+	});
+
+	it("honors a saved mute on automatic activation", () => {
+		localStorage.setItem(
+			SOUND_PREFERENCE_KEY,
+			JSON.stringify({
+				enabled: false,
+				volume: 0.25,
+				typing: false,
+			}),
+		);
+		vi.spyOn(
+			document,
+			"addEventListener",
+		);
+		const detach = sound.attach();
+		trustedActivation("pointerup");
+		trustedActivation("keydown");
+		expect(
+			sound.getSnapshot(),
+		).toMatchObject({
+			enabled: false,
+			volume: 0.25,
+			typing: false,
+			unlocked: false,
+		});
+		expect(
+			createUISFX,
+		).not.toHaveBeenCalled();
+		expect(
+			HTMLMediaElement.prototype
+				.play,
+		).not.toHaveBeenCalled();
+		detach();
+	});
+
+	it("ignores synthetic events, keyboard modifiers, and sound or disabled controls", () => {
+		vi.spyOn(
+			document,
+			"addEventListener",
+		);
+		const detach = sound.attach();
+		document.dispatchEvent(
+			new Event("pointerup", {
+				bubbles: true,
+			}),
+		);
+		document.dispatchEvent(
+			new KeyboardEvent(
+				"keydown",
+				{
+					key: "Enter",
+					bubbles: true,
+				},
+			),
+		);
+		trustedActivation(
+			"keydown",
+			null,
+			{ key: "Shift" },
+		);
+		trustedActivation(
+			"keydown",
+			null,
+			{ repeat: true },
+		);
+		trustedActivation(
+			"keydown",
+			null,
+			{ ctrlKey: true },
+		);
+		const controls =
+			document.createElement(
+				"div",
+			);
+		controls.className =
+			"sound-controls";
+		const mute =
+			document.createElement(
+				"button",
+			);
+		controls.append(mute);
+		trustedActivation(
+			"pointerup",
+			mute,
+		);
+		const disabled =
+			document.createElement(
+				"button",
+			);
+		disabled.disabled = true;
+		trustedActivation(
+			"pointerup",
+			disabled,
+		);
+		expect(
+			createUISFX,
+		).not.toHaveBeenCalled();
+		detach();
+	});
+
+	it("removes automatic activation listeners on final detach", () => {
+		const add = vi.spyOn(
+			document,
+			"addEventListener",
+		);
+		const remove = vi.spyOn(
+			document,
+			"removeEventListener",
+		);
+		const detach = sound.attach();
+		detach();
+		for (const type of [
+			"pointerup",
+			"keydown",
+		]) {
+			const registered =
+				add.mock.calls.find(
+					([name]) =>
+						name === type,
+				)!;
+			expect(
+				remove,
+			).toHaveBeenCalledWith(
+				...registered,
+			);
+		}
+	});
+});
+
 describe("shared client sound player", () => {
+	it("enables sound by default without claiming browser audio is unlocked", () => {
+		sound.initialize();
+		expect(sound.getSnapshot()).toMatchObject({ enabled: true, volume: 0.7, typing: true, unlocked: false });
+		expect(sound.playOutcome("success")).toBeNull();
+		expect(createUISFX).not.toHaveBeenCalled();
+		expect(HTMLMediaElement.prototype.play).not.toHaveBeenCalled();
+	});
+
 	it("keeps a failed persistence warning visible after successful audio activation", () => {
 		vi.spyOn(Storage.prototype, "setItem").mockImplementation(
 			() => {
@@ -163,8 +408,9 @@ describe("shared client sound player", () => {
 		sound.initialize();
 		expect(sound.getSnapshot()).toMatchObject({
 			enabled: true,
-			volume: 0.7,
-			unlocked: true,
+			volume: 0.4,
+			typing: false,
+			unlocked: false,
 		});
 		expect(sound.playOutcome("success")).toBeNull();
 		expect(createUISFX).not.toHaveBeenCalled();
@@ -298,11 +544,12 @@ describe("shared client sound player", () => {
 		const restored = new SiteAudio();
 		restored.initialize();
 		expect(restored.getSnapshot()).toMatchObject({
-			enabled: true,
-			volume: 0.7,
+			enabled: false,
+			volume: 0.32,
 			typing: true,
-			unlocked: true,
+			unlocked: false,
 		});
+		expect(restored.playFromGesture("forward")).toBeNull();
 		expect(player.setVolume).toHaveBeenCalledWith(0.32);
 		expect(createUISFX).toHaveBeenCalledOnce();
 	});
@@ -310,7 +557,8 @@ describe("shared client sound player", () => {
 	it("surfaces invalid or inaccessible preference storage", () => {
 		localStorage.setItem(SOUND_PREFERENCE_KEY, '{"enabled":"yes"}');
 		sound.initialize();
-		expect(sound.getSnapshot()).toMatchObject({ enabled: true });
+		expect(sound.getSnapshot()).toMatchObject({ enabled: false, unlocked: false });
+		expect(sound.getSnapshot().message).toContain("could not be loaded");
 		vi.spyOn(Storage.prototype, "setItem").mockImplementation(
 			() => {
 				throw new DOMException(
@@ -321,7 +569,8 @@ describe("shared client sound player", () => {
 		);
 		sound.setVolume(0.5);
 		expect(sound.getSnapshot().volume).toBe(0.5);
-		expect(console.error).toHaveBeenCalledTimes(1);
+		expect(sound.getSnapshot().message).toContain("could not be saved");
+		expect(console.error).toHaveBeenCalledTimes(2);
 	});
 
 	it("retains the player across a Strict Mode trial detach and destroys it only on final teardown", async () => {
@@ -487,6 +736,35 @@ describe("gesture-started original intro tracks", () => {
 });
 
 describe("accessible sound settings", () => {
+	it("keeps mute available after activation fails and offers an explicit retry", async () => {
+		siteAudio.setEnabled(true);
+		await act(async () => root.render(<SoundSettings />));
+		vi.stubGlobal("AudioContext", undefined);
+		await act(async () => siteAudio.unlockFromGesture());
+		const buttons = Array.from(container.querySelectorAll<HTMLButtonElement>("button"));
+		expect(buttons.map(button => button.textContent)).toEqual(["Mute sound", "Enable sound"]);
+		expect(createUISFX).not.toHaveBeenCalled();
+		vi.stubGlobal("AudioContext", FakeAudioContext);
+		await act(async () => buttons[1].click());
+		expect(createUISFX).toHaveBeenCalledOnce();
+		expect(container.querySelector('[role="status"]')).toBeNull();
+		expect(container.querySelectorAll("button")).toHaveLength(1);
+	});
+
+	it("shows sound enabled before browser activation and allows muting without starting audio", async () => {
+		siteAudio.setEnabled(true);
+		localStorage.clear();
+		await act(async () => root.render(<SoundSettings />));
+		const button = container.querySelector<HTMLButtonElement>("button")!;
+		expect(button.textContent).toBe("Mute sound");
+		expect(button.title).toContain("first interaction");
+		expect(createUISFX).not.toHaveBeenCalled();
+		await act(async () => button.click());
+		expect(button.textContent).toBe("Enable sound");
+		expect(createUISFX).not.toHaveBeenCalled();
+		expect(JSON.parse(localStorage.getItem(SOUND_PREFERENCE_KEY)!)).toMatchObject({ enabled: false });
+	});
+
 	it("does not create audio on mount and uses one click handler for pointer and keyboard activation", async () => {
 		await act(async () =>
 			root.render(
