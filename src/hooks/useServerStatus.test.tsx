@@ -42,7 +42,9 @@ function deferred() {
 
 beforeEach(() => {
 	(
-		globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }
+		globalThis as typeof globalThis & {
+			IS_REACT_ACT_ENVIRONMENT: boolean;
+		}
 	).IS_REACT_ACT_ENVIRONMENT = true;
 	vi.useFakeTimers();
 	container = document.createElement("div");
@@ -71,7 +73,9 @@ describe("explicit telemetry refresh sounds", () => {
 		recordProcessSounds();
 		await render();
 		await act(async () => vi.advanceTimersByTimeAsync(15000));
-		expect(siteAudio.startProcessFromGesture).not.toHaveBeenCalled();
+		expect(
+			siteAudio.startProcessFromGesture,
+		).not.toHaveBeenCalled();
 		expect(siteAudio.playOutcome).not.toHaveBeenCalled();
 		expect(serverStatusProvider.getStatus).toHaveBeenCalledTimes(2);
 	});
@@ -82,19 +86,31 @@ describe("explicit telemetry refresh sounds", () => {
 			const processes = recordProcessSounds();
 			await render();
 			const next = deferred();
-			vi.mocked(serverStatusProvider.getStatus).mockReturnValueOnce(next.promise);
+			vi.mocked(
+				serverStatusProvider.getStatus,
+			).mockReturnValueOnce(next.promise);
 			await act(async () => {
 				feed.refresh();
 				feed.refresh();
 			});
-			expect(siteAudio.startProcessFromGesture).toHaveBeenCalledExactlyOnceWith(
+			expect(
+				siteAudio.startProcessFromGesture,
+			).toHaveBeenCalledExactlyOnceWith(
 				"loading",
 				expect.any(Function),
 			);
 			expect(siteAudio.playOutcome).not.toHaveBeenCalled();
-			await act(async () => next.resolve({ ...status, error, playersOnline: 4 }));
+			await act(async () =>
+				next.resolve({
+					...status,
+					error,
+					playersOnline: 4,
+				}),
+			);
 			expect(processes[0].active).toBe(false);
-			expect(siteAudio.playOutcome).toHaveBeenCalledExactlyOnceWith(
+			expect(
+				siteAudio.playOutcome,
+			).toHaveBeenCalledExactlyOnceWith(
 				error ? "error" : "success",
 			);
 			expect(container.textContent).toBe(error ?? "4");
@@ -105,7 +121,9 @@ describe("explicit telemetry refresh sounds", () => {
 		const processes = recordProcessSounds();
 		await render();
 		const next = deferred();
-		vi.mocked(serverStatusProvider.getStatus).mockReturnValueOnce(next.promise);
+		vi.mocked(serverStatusProvider.getStatus).mockReturnValueOnce(
+			next.promise,
+		);
 		await act(async () => feed.refresh());
 		await act(async () => root.unmount());
 		expect(processes[0].active).toBe(false);

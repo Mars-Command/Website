@@ -10,7 +10,9 @@ export function useServerStatus() {
 	const [status, setStatus] = useState<ServerStatus | null>(null);
 	const [isChecking, setIsChecking] = useState(true);
 	const [lastUpdated, setLastUpdated] = useState<string | null>(null);
-	const refreshRef = useRef<(process?: SoundProcess | null) => Promise<void>>(async () => undefined);
+	const refreshRef = useRef<
+		(process?: SoundProcess | null) => Promise<void>
+	>(async () => undefined);
 	const requestInFlightRef = useRef<Promise<ServerStatus> | null>(null);
 	const processSound = useProcessSound();
 
@@ -29,7 +31,11 @@ export function useServerStatus() {
 				if (active) {
 					setStatus(nextStatus);
 					setLastUpdated(nextStatus.checkedAt);
-					process?.finish(nextStatus.error ? "error" : "success");
+					process?.finish(
+						nextStatus.error
+							? "error"
+							: "success",
+					);
 				}
 			} finally {
 				process?.stop();

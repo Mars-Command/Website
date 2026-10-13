@@ -14,25 +14,29 @@ let sound: ReturnType<typeof useProcessSound>;
 
 beforeEach(() => {
 	(
-		globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }
+		globalThis as typeof globalThis & {
+			IS_REACT_ACT_ENVIRONMENT: boolean;
+		}
 	).IS_REACT_ACT_ENVIRONMENT = true;
 	container = document.createElement("div");
 	document.body.append(container);
 	root = createRoot(container);
-	vi.spyOn(siteAudio, "startProcessFromGesture").mockImplementation((_cue, onStop) => {
-		let active = true;
-		process = {
-			get active() {
-				return active;
-			},
-			stop: vi.fn(() => {
-				active = false;
-				onStop();
-			}),
-			finish: vi.fn(),
-		};
-		return process;
-	});
+	vi.spyOn(siteAudio, "startProcessFromGesture").mockImplementation(
+		(_cue, onStop) => {
+			let active = true;
+			process = {
+				get active() {
+					return active;
+				},
+				stop: vi.fn(() => {
+					active = false;
+					onStop();
+				}),
+				finish: vi.fn(),
+			};
+			return process;
+		},
+	);
 });
 afterEach(async () => {
 	await act(async () => root.unmount());
@@ -62,10 +66,14 @@ describe("visible process sound ownership", () => {
 		await render();
 		const first = sound.start();
 		expect(sound.start()).toBe(first);
-		expect(siteAudio.startProcessFromGesture).toHaveBeenCalledOnce();
+		expect(
+			siteAudio.startProcessFromGesture,
+		).toHaveBeenCalledOnce();
 		process.stop();
 		expect(sound.start()).not.toBe(first);
-		expect(siteAudio.startProcessFromGesture).toHaveBeenCalledTimes(2);
+		expect(siteAudio.startProcessFromGesture).toHaveBeenCalledTimes(
+			2,
+		);
 	});
 
 	it("stops an invisible process without cancelling its underlying operation", async () => {
@@ -76,7 +84,9 @@ describe("visible process sound ownership", () => {
 		expect(running.stop).toHaveBeenCalledOnce();
 		expect(sound.start()).toBeNull();
 		await render();
-		expect(siteAudio.startProcessFromGesture).toHaveBeenCalledOnce();
+		expect(
+			siteAudio.startProcessFromGesture,
+		).toHaveBeenCalledOnce();
 	});
 
 	it("stops on unmount and starts a fresh handle after remount", async () => {
@@ -91,7 +101,9 @@ describe("visible process sound ownership", () => {
 	});
 
 	it("accepts a null player handle", async () => {
-		vi.mocked(siteAudio.startProcessFromGesture).mockReturnValue(null);
+		vi.mocked(siteAudio.startProcessFromGesture).mockReturnValue(
+			null,
+		);
 		await render();
 		expect(sound.start()).toBeNull();
 		sound.stop();

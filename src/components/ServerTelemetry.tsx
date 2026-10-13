@@ -28,9 +28,12 @@ export function ServerTelemetry({
 	lastUpdated,
 	terminal = false,
 }: ServerTelemetryProps) {
-	const headingId = terminal ? "uplink-telemetry-heading" : "telemetry-heading";
+	const headingId = terminal
+		? "uplink-telemetry-heading"
+		: "telemetry-heading";
 	const Container = terminal ? TerminalBox : "section";
-	const text = (value: string) => terminal ? <TerminalText>{value}</TerminalText> : value;
+	const text = (value: string) =>
+		terminal ? <TerminalText>{value}</TerminalText> : value;
 	const rows = [
 		["HOST", status?.host || marsConfig.serverAddress],
 		["MINECRAFT", marsConfig.minecraftVersion],
@@ -83,14 +86,18 @@ export function ServerTelemetry({
 					>
 						<dt>{text(label)}</dt>
 						<dd>
-							<span className="telemetry-separator">::</span>
+							<span className="telemetry-separator">
+								::
+							</span>
 							{text(value)}
 						</dd>
 					</div>
 				))}
 			</dl>
 			<p className="telemetry-note">
-				{text("Live status from the public feed. Minecraft, loader and voice targets are configured colony connection details.")}
+				{text(
+					"Live status from the public feed. Minecraft, loader and voice targets are configured colony connection details.",
+				)}
 			</p>
 		</Container>
 	);

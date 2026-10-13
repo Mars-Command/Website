@@ -8,7 +8,10 @@ type TerminalMotion = {
 };
 
 export const TerminalMotionContext = createContext<TerminalMotion>({
-	entered: true, animate: false, beginTyping: () => () => {}, beginNavigation: () => false,
+	entered: true,
+	animate: false,
+	beginTyping: () => () => {},
+	beginNavigation: () => false,
 });
 
 export function useTerminalMotion() {

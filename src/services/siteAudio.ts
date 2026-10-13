@@ -5,7 +5,12 @@ import { sitePath } from "../config/account";
 export const SOUND_PACK = "scifi";
 export const SOUND_PREFERENCE_KEY = "mars-command:sound";
 export type LoopCue =
-	"loading" | "processing" | "recording" | "connecting" | "scanning" | "streaming";
+	| "loading"
+	| "processing"
+	| "recording"
+	| "connecting"
+	| "scanning"
+	| "streaming";
 export type OneShotCue = Exclude<CueName, LoopCue>;
 export type SoundProcess = {
 	stop: () => void;
@@ -30,14 +35,18 @@ const initialState: SoundState = {
 
 export class SiteAudio {
 	private state = initialState;
-	private initialized = false;
+	private initialized = true;
 	private listeners = new Set<() => void>();
 	private player: UISFXPlayer | null = null;
 	private context: AudioContext | null = null;
 	private processes = new Set<SoundProcess>();
 	private opening: HTMLAudioElement | null = null;
 	private newPage: HTMLAudioElement | null = null;
-	private intro: { id: symbol; entered: boolean; started: boolean } | null = null;
+	private intro: {
+		id: symbol;
+		entered: boolean;
+		started: boolean;
+	} | null = null;
 	private audioVersion = 0;
 	private owners = 0;
 	private retirement = 0;
@@ -66,7 +75,10 @@ export class SiteAudio {
 		if (this.initialized || typeof window === "undefined") return;
 		this.initialized = true;
 		try {
-			const raw = window.localStorage.getItem(SOUND_PREFERENCE_KEY);
+			const raw =
+				window.localStorage.getItem(
+					SOUND_PREFERENCE_KEY,
+				);
 			if (raw === null) return;
 			const saved: unknown = JSON.parse(raw);
 			if (
@@ -83,7 +95,11 @@ export class SiteAudio {
 				typeof saved.typing !== "boolean"
 			)
 				throw new Error("Invalid sound preferences");
-			this.update({ enabled: saved.enabled, volume: saved.volume, typing: saved.typing });
+			this.update({
+				enabled: saved.enabled,
+				volume: saved.volume,
+				typing: saved.typing,
+			});
 		} catch (error) {
 			this.report(
 				"Sound preferences could not be loaded. Sound remains off until you enable it.",
@@ -113,13 +129,21 @@ export class SiteAudio {
 
 	private fromGesture(): UISFXPlayer | null {
 		this.initialize();
-		if (typeof window === "undefined" || !this.state.enabled || this.state.volume === 0)
+		if (
+			typeof window === "undefined" ||
+			!this.state.enabled ||
+			this.state.volume === 0
+		)
 			return null;
 		try {
-			if (!window.AudioContext) throw new Error("Web Audio is unavailable");
+			if (!window.AudioContext)
+				throw new Error("Web Audio is unavailable");
 			if (!this.context) {
 				this.context = new window.AudioContext();
-				this.context.addEventListener("statechange", this.contextChanged);
+				this.context.addEventListener(
+					"statechange",
+					this.contextChanged,
+				);
 			}
 			if (!this.player) {
 				this.player = createUISFX({
@@ -132,22 +156,32 @@ export class SiteAudio {
 				this.player.setPack(SOUND_PACK);
 			}
 			const context = this.context;
-			if (context.state === "running") this.update({ unlocked: true });
+			if (context.state === "running")
+				this.update({ unlocked: true });
 			else
 				void context
 					.resume()
 					.then(() => {
-						if (this.context !== context) return;
-						if (context.state === "running") this.update({ unlocked: true });
+						if (this.context !== context)
+							return;
+						if (context.state === "running")
+							this.update({
+								unlocked: true,
+							});
 						else
 							this.report(
 								"Audio is blocked. Use Enable sound to try again.",
-								new Error("AudioContext did not resume"),
+								new Error(
+									"AudioContext did not resume",
+								),
 							);
 					})
 					.catch((error) => {
 						if (this.context === context)
-							this.report("Audio is blocked. Use Enable sound to try again.", error);
+							this.report(
+								"Audio is blocked. Use Enable sound to try again.",
+								error,
+							);
 					});
 			return this.player;
 		} catch (error) {
@@ -163,16 +197,26 @@ export class SiteAudio {
 		this.fromGesture();
 	}
 
-	private play(player: UISFXPlayer, cue: CueName, options?: PlayOptions): PlayingSFX | null {
+	private play(
+		player: UISFXPlayer,
+		cue: CueName,
+		options?: PlayOptions,
+	): PlayingSFX | null {
 		try {
 			return player.play(cue, options);
 		} catch (error) {
-			this.report("A sound could not be played. You can continue without it.", error);
+			this.report(
+				"A sound could not be played. You can continue without it.",
+				error,
+			);
 			return null;
 		}
 	}
 
-	playFromGesture(cue: OneShotCue | LoopCue, options?: PlayOptions): PlayingSFX | null {
+	playFromGesture(
+		cue: OneShotCue | LoopCue,
+		options?: PlayOptions,
+	): PlayingSFX | null {
 		const player = this.fromGesture();
 		return player ? this.play(player, cue, options) : null;
 	}
@@ -188,12 +232,19 @@ export class SiteAudio {
 			this.state.unlocked &&
 			this.state.volume > 0 &&
 			this.context?.state === "running" &&
-			(typeof document === "undefined" || document.visibilityState === "visible")
+			(typeof document === "undefined" ||
+				document.visibilityState === "visible")
 		);
 	}
 
-	startProcessFromGesture(cue: LoopCue, onStop: () => void): SoundProcess | null {
-		let handle = this.playFromGesture(cue, { volume: 0.18, retrigger: "overlap" });
+	startProcessFromGesture(
+		cue: LoopCue,
+		onStop: () => void,
+	): SoundProcess | null {
+		let handle = this.playFromGesture(cue, {
+			volume: 0.18,
+			retrigger: "overlap",
+		});
 		if (!handle) return null;
 		let active = true;
 		const process: SoundProcess = {
@@ -217,7 +268,10 @@ export class SiteAudio {
 		this.processes.add(process);
 		void handle.ended.then(process.stop).catch((error) => {
 			process.stop();
-			this.report("A process sound stopped unexpectedly.", error);
+			this.report(
+				"A process sound stopped unexpectedly.",
+				error,
+			);
 		});
 		return process;
 	}
@@ -243,7 +297,9 @@ export class SiteAudio {
 
 	setVolume(volume: number) {
 		if (!Number.isFinite(volume) || volume < 0 || volume > 1)
-			throw new RangeError("Sound volume must be between 0 and 1");
+			throw new RangeError(
+				"Sound volume must be between 0 and 1",
+			);
 		if (volume === 0) this.stopAll();
 		this.update({ volume });
 		this.player?.setVolume(volume);
@@ -271,9 +327,15 @@ export class SiteAudio {
 	}
 
 	enterIntro(id: symbol, animated: boolean) {
-		if (!this.intro || this.intro.id !== id || this.intro.entered) return;
+		if (!this.intro || this.intro.id !== id || this.intro.entered)
+			return;
 		this.intro.entered = true;
-		if (this.intro.started && animated && this.newPage && this.isAudible())
+		if (
+			this.intro.started &&
+			animated &&
+			this.newPage &&
+			this.isAudible()
+		)
 			this.playCustom(this.newPage);
 	}
 
@@ -297,13 +359,26 @@ export class SiteAudio {
 		if (!player) return;
 		if (this.intro && !this.intro.entered) {
 			if (!this.opening) {
-				this.opening = new Audio(sitePath("sounds/opening.mp3"));
-				this.newPage = new Audio(sitePath("sounds/new_page.mp3"));
-				for (const audio of [this.opening, this.newPage]) {
+				this.opening = new Audio(
+					sitePath("sounds/opening.mp3"),
+				);
+				this.newPage = new Audio(
+					sitePath("sounds/new_page.mp3"),
+				);
+				for (const audio of [
+					this.opening,
+					this.newPage,
+				]) {
 					audio.preload = "auto";
 					audio.addEventListener("error", () => {
-						if (audio === this.opening || audio === this.newPage) {
-							this.update({ unlocked: false });
+						if (
+							audio ===
+								this.opening ||
+							audio === this.newPage
+						) {
+							this.update({
+								unlocked: false,
+							});
 							this.report(
 								"An intro sound is unavailable. Mission control still works without it.",
 								audio.error,
@@ -325,22 +400,36 @@ export class SiteAudio {
 		const target = event.target;
 		const textInput =
 			target instanceof HTMLInputElement &&
-			["text", "search", "email", "url", "tel", "password", "number"].includes(target.type);
+			[
+				"text",
+				"search",
+				"email",
+				"url",
+				"tel",
+				"password",
+				"number",
+			].includes(target.type);
 		if (
 			(textInput || target instanceof HTMLTextAreaElement) &&
 			!target.disabled &&
 			!target.readOnly
 		) {
-			this.playFromGesture("typing", { volume: 0.12, cooldownMs: 0, retrigger: "overlap" });
+			this.playFromGesture("typing", {
+				volume: 0.12,
+				cooldownMs: 0,
+				retrigger: "overlap",
+			});
 		}
 	};
 
 	private invalid = (event: Event) => {
-		if (!(
-			event.target instanceof HTMLInputElement ||
-			event.target instanceof HTMLTextAreaElement ||
-			event.target instanceof HTMLSelectElement
-		))
+		if (
+			!(
+				event.target instanceof HTMLInputElement ||
+				event.target instanceof HTMLTextAreaElement ||
+				event.target instanceof HTMLSelectElement
+			)
+		)
 			return;
 		const form = event.target.form ?? event.target;
 		if (this.invalidForms.has(form)) return;
@@ -361,10 +450,18 @@ export class SiteAudio {
 			this.update({ unlocked: false });
 			void this.context
 				?.suspend()
-				.catch((error) => this.report("Sound could not be suspended.", error));
+				.catch((error) =>
+					this.report(
+						"Sound could not be suspended.",
+						error,
+					),
+				);
 		} else
 			void this.dispose().catch((error) =>
-				this.report("Sound could not shut down cleanly.", error),
+				this.report(
+					"Sound could not shut down cleanly.",
+					error,
+				),
 			);
 	};
 
@@ -375,22 +472,42 @@ export class SiteAudio {
 		this.retirement++;
 		if (this.owners === 1) {
 			document.addEventListener("input", this.input);
-			document.addEventListener("invalid", this.invalid, true);
-			document.addEventListener("visibilitychange", this.visibilityChanged);
+			document.addEventListener(
+				"invalid",
+				this.invalid,
+				true,
+			);
+			document.addEventListener(
+				"visibilitychange",
+				this.visibilityChanged,
+			);
 			window.addEventListener("pagehide", this.pageHide);
 		}
 		return () => {
 			if (--this.owners !== 0) return;
 			document.removeEventListener("input", this.input);
-			document.removeEventListener("invalid", this.invalid, true);
-			document.removeEventListener("visibilitychange", this.visibilityChanged);
+			document.removeEventListener(
+				"invalid",
+				this.invalid,
+				true,
+			);
+			document.removeEventListener(
+				"visibilitychange",
+				this.visibilityChanged,
+			);
 			window.removeEventListener("pagehide", this.pageHide);
 			const retirement = ++this.retirement;
 			// Strict Mode's immediate reattachment cancels trial-mount disposal.
 			queueMicrotask(() => {
-				if (this.owners === 0 && retirement === this.retirement) {
+				if (
+					this.owners === 0 &&
+					retirement === this.retirement
+				) {
 					void this.dispose().catch((error) =>
-						this.report("Sound could not shut down cleanly.", error),
+						this.report(
+							"Sound could not shut down cleanly.",
+							error,
+						),
 					);
 				}
 			});
@@ -407,11 +524,15 @@ export class SiteAudio {
 		this.newPage = null;
 		this.intro = null;
 		this.update({ unlocked: false });
-		context?.removeEventListener("statechange", this.contextChanged);
+		context?.removeEventListener(
+			"statechange",
+			this.contextChanged,
+		);
 		try {
 			await player?.destroy();
 		} finally {
-			if (context && context.state !== "closed") await context.close();
+			if (context && context.state !== "closed")
+				await context.close();
 		}
 	}
 }
@@ -422,6 +543,11 @@ if (import.meta.hot) {
 	import.meta.hot.dispose(() => {
 		void siteAudio
 			.dispose()
-			.catch((error) => console.error("Sound could not shut down cleanly.", error));
+			.catch((error) =>
+				console.error(
+					"Sound could not shut down cleanly.",
+					error,
+				),
+			);
 	});
 }

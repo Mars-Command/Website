@@ -20,9 +20,12 @@ export function useProcessSound(visible = true) {
 	const start = useCallback((cue: LoopCue = "processing") => {
 		if (!active.current) return null;
 		if (!current.current) {
-			current.current = siteAudio.startProcessFromGesture(cue, () => {
-				current.current = null;
-			});
+			current.current = siteAudio.startProcessFromGesture(
+				cue,
+				() => {
+					current.current = null;
+				},
+			);
 		}
 		return current.current;
 	}, []);

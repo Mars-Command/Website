@@ -45,10 +45,14 @@ export function ServerStatusCard({
 			<div className="panel-heading">
 				<div>
 					<p className="eyebrow">
-						<TerminalText>01 / COLONY UPLINK</TerminalText>
+						<TerminalText>
+							01 / COLONY UPLINK
+						</TerminalText>
 					</p>
 					<h2 id="status-heading">
-						<TerminalText>LIVE SERVER STATUS</TerminalText>
+						<TerminalText>
+							LIVE SERVER STATUS
+						</TerminalText>
 					</h2>
 				</div>
 				<StatusBadge
@@ -67,40 +71,65 @@ export function ServerStatusCard({
 				/>
 				<div className="status-message">
 					<strong>
-						<TerminalText>{checking
-							? "CONTACTING MARS"
-							: online
-								? "COLONY CONNECTION ESTABLISHED"
-								: "NO SIGNAL FROM COLONY"}</TerminalText>
+						<TerminalText>
+							{checking
+								? "CONTACTING MARS"
+								: online
+									? "COLONY CONNECTION ESTABLISHED"
+									: "NO SIGNAL FROM COLONY"}
+						</TerminalText>
 					</strong>
 					<p>
-						<TerminalText>{getPersonnelMessage(
-							status,
-							checking,
-						)}</TerminalText>
+						<TerminalText>
+							{getPersonnelMessage(
+								status,
+								checking,
+							)}
+						</TerminalText>
 					</p>
 				</div>
 			</div>
 
-			<TerminalBox framed={false} className="status-stats" aria-label="Personnel and latency readings">
+			<TerminalBox
+				framed={false}
+				className="status-stats"
+				aria-label="Personnel and latency readings"
+			>
 				<div className="status-stat">
 					<Users size={15} aria-hidden="true" />
-					<span><TerminalText>PERSONNEL</TerminalText></span>
-					<strong><TerminalText>{personnel}</TerminalText></strong>
+					<span>
+						<TerminalText>
+							PERSONNEL
+						</TerminalText>
+					</span>
+					<strong>
+						<TerminalText>
+							{personnel}
+						</TerminalText>
+					</strong>
 				</div>
 				<div className="status-stat">
 					<Signal size={15} aria-hidden="true" />
-					<span><TerminalText>LATENCY</TerminalText></span>
+					<span>
+						<TerminalText>
+							LATENCY
+						</TerminalText>
+					</span>
 					<strong>
-						<TerminalText>{status?.latencyMs == null
-							? "—"
-							: `${Math.round(status.latencyMs)} ms`}</TerminalText>
+						<TerminalText>
+							{status?.latencyMs ==
+							null
+								? "—"
+								: `${Math.round(status.latencyMs)} ms`}
+						</TerminalText>
 					</strong>
 				</div>
 			</TerminalBox>
 
 			{status?.motd && (
-				<p className="server-motd"><TerminalText>{`“${status.motd}”`}</TerminalText></p>
+				<p className="server-motd">
+					<TerminalText>{`“${status.motd}”`}</TerminalText>
+				</p>
 			)}
 			{status?.error && !checking && (
 				<p className="status-error">{status.error}</p>
@@ -110,7 +139,11 @@ export function ServerStatusCard({
 				<span>
 					<TerminalText>LAST CHECK</TerminalText>{" "}
 					<strong>
-						<TerminalText>{formatTime(lastUpdated)}</TerminalText>
+						<TerminalText>
+							{formatTime(
+								lastUpdated,
+							)}
+						</TerminalText>
 					</strong>
 				</span>
 				<button
@@ -128,7 +161,11 @@ export function ServerStatusCard({
 						size={15}
 						aria-hidden="true"
 					/>
-					<span><TerminalText>REFRESH</TerminalText></span>
+					<span>
+						<TerminalText>
+							REFRESH
+						</TerminalText>
+					</span>
 				</button>
 			</div>
 		</TerminalBox>

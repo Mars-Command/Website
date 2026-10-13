@@ -9,17 +9,29 @@ export function useSession() {
 	const [attempt, setAttempt] = useState(0);
 	useEffect(() => {
 		let active = true;
-		accountApi.session().then(result => {
-			if (active) setUser(result);
-		}).catch(error => {
-			if (active) setError(errorMessage(error));
-		}).finally(() => {
-			if (active) setCompletedAttempt(attempt);
-		});
-		return () => { active = false; };
+		accountApi
+			.session()
+			.then((result) => {
+				if (active) setUser(result);
+			})
+			.catch((error) => {
+				if (active) setError(errorMessage(error));
+			})
+			.finally(() => {
+				if (active) setCompletedAttempt(attempt);
+			});
+		return () => {
+			active = false;
+		};
 	}, [attempt]);
-	return { user, setUser, loading: completedAttempt !== attempt, error, retry: () => {
-		setError("");
-		setAttempt(value => value + 1);
-	} };
+	return {
+		user,
+		setUser,
+		loading: completedAttempt !== attempt,
+		error,
+		retry: () => {
+			setError("");
+			setAttempt((value) => value + 1);
+		},
+	};
 }

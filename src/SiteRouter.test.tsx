@@ -7,14 +7,42 @@ import { SiteRouter } from "./SiteRouter";
 import { sitePath } from "./config/account";
 import { siteAudio } from "./services/siteAudio";
 
-vi.mock("./App", () => ({ default: () => <main><a href={sitePath("account")}>Account</a><a href={sitePath("auth/login") + "?requestId=mission-1"}>Desktop sign in</a></main> }));
-vi.mock("./components/AccountPage", () => ({ AccountPage: () => <main>Personal profiles<a href={sitePath()}>Home</a></main> }));
-vi.mock("./components/AuthLogin", () => ({ AuthLogin: ({ search }: { search: string }) => <main>Login callback: {search}</main> }));
+vi.mock("./App", () => ({
+	default: () => (
+		<main>
+			<a href={sitePath("account")}>Account</a>
+			<a
+				href={
+					sitePath("auth/login") +
+					"?requestId=mission-1"
+				}
+			>
+				Desktop sign in
+			</a>
+		</main>
+	),
+}));
+vi.mock("./components/AccountPage", () => ({
+	AccountPage: () => (
+		<main>
+			Personal profiles<a href={sitePath()}>Home</a>
+		</main>
+	),
+}));
+vi.mock("./components/AuthLogin", () => ({
+	AuthLogin: ({ search }: { search: string }) => (
+		<main>Login callback: {search}</main>
+	),
+}));
 
 let container: HTMLDivElement;
 let root: Root;
 beforeEach(() => {
-	(globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+	(
+		globalThis as typeof globalThis & {
+			IS_REACT_ACT_ENVIRONMENT: boolean;
+		}
+	).IS_REACT_ACT_ENVIRONMENT = true;
 	window.history.replaceState(null, "", sitePath());
 	vi.spyOn(window, "scrollTo").mockImplementation(() => {});
 	vi.spyOn(siteAudio, "playFromGesture").mockReturnValue(null);
@@ -33,29 +61,74 @@ afterEach(async () => {
 describe("dynamic terminal navigation", () => {
 	it("maps internal navigation and both history directions without duplicate cues", async () => {
 		await act(async () => root.render(<SiteRouter />));
-		await act(async () => container.querySelector<HTMLAnchorElement>('a[href$="account"]')!.click());
-		await act(async () => container.querySelector<HTMLAnchorElement>(`a[href="${sitePath()}"]`)!.click());
-		expect(vi.mocked(siteAudio.playFromGesture).mock.calls.map(([cue]) => cue)).toEqual(["forward", "forward"]);
+		await act(async () =>
+			container
+				.querySelector<HTMLAnchorElement>(
+					'a[href$="account"]',
+				)!
+				.click(),
+		);
+		await act(async () =>
+			container
+				.querySelector<HTMLAnchorElement>(
+					`a[href="${sitePath()}"]`,
+				)!
+				.click(),
+		);
+		expect(
+			vi
+				.mocked(siteAudio.playFromGesture)
+				.mock.calls.map(([cue]) => cue),
+		).toEqual(["forward", "forward"]);
 		await act(async () => {
-			window.history.replaceState({ marsNavigationIndex: 1 }, "", sitePath("account"));
-			window.dispatchEvent(new PopStateEvent("popstate", { state: { marsNavigationIndex: 1 } }));
+			window.history.replaceState(
+				{ marsNavigationIndex: 1 },
+				"",
+				sitePath("account"),
+			);
+			window.dispatchEvent(
+				new PopStateEvent("popstate", {
+					state: { marsNavigationIndex: 1 },
+				}),
+			);
 		});
 		await act(async () => {
-			window.history.replaceState({ marsNavigationIndex: 2 }, "", sitePath());
-			window.dispatchEvent(new PopStateEvent("popstate", { state: { marsNavigationIndex: 2 } }));
+			window.history.replaceState(
+				{ marsNavigationIndex: 2 },
+				"",
+				sitePath(),
+			);
+			window.dispatchEvent(
+				new PopStateEvent("popstate", {
+					state: { marsNavigationIndex: 2 },
+				}),
+			);
 		});
-		expect(vi.mocked(siteAudio.playOutcome).mock.calls.map(([cue]) => cue)).toEqual(["back", "forward"]);
+		expect(
+			vi
+				.mocked(siteAudio.playOutcome)
+				.mock.calls.map(([cue]) => cue),
+		).toEqual(["back", "forward"]);
 	});
 
 	it("navigates internally through history and responds to back/forward events", async () => {
 		const push = vi.spyOn(window.history, "pushState");
 		await act(async () => root.render(<SiteRouter />));
-		await act(async () => container.querySelector<HTMLAnchorElement>('a[href$="account"]')!.click());
+		await act(async () =>
+			container
+				.querySelector<HTMLAnchorElement>(
+					'a[href$="account"]',
+				)!
+				.click(),
+		);
 		expect(push).toHaveBeenCalledOnce();
 		expect(window.location.pathname).toBe(sitePath("account"));
 		expect(container.textContent).toContain("Personal profiles");
 		expect(document.title).toBe("Account // Mars Command");
-		expect(window.scrollTo).toHaveBeenCalledWith({ top: 0, behavior: "instant" });
+		expect(window.scrollTo).toHaveBeenCalledWith({
+			top: 0,
+			behavior: "instant",
+		});
 		await act(async () => {
 			window.history.replaceState(null, "", sitePath());
 			window.dispatchEvent(new PopStateEvent("popstate"));
@@ -66,9 +139,17 @@ describe("dynamic terminal navigation", () => {
 
 	it("retains desktop request query state when switching routes", async () => {
 		await act(async () => root.render(<SiteRouter />));
-		await act(async () => container.querySelector<HTMLAnchorElement>('a[href*="requestId"]')!.click());
+		await act(async () =>
+			container
+				.querySelector<HTMLAnchorElement>(
+					'a[href*="requestId"]',
+				)!
+				.click(),
+		);
 		expect(window.location.search).toBe("?requestId=mission-1");
-		expect(container.textContent).toContain("Login callback: ?requestId=mission-1");
+		expect(container.textContent).toContain(
+			"Login callback: ?requestId=mission-1",
+		);
 	});
 
 	it("does not intercept modified, download, external, hash, or already-handled clicks", async () => {
@@ -91,11 +172,18 @@ describe("dynamic terminal navigation", () => {
 			if (item.target) anchor.target = item.target;
 			if (item.download) anchor.download = item.download;
 			document.body.append(anchor);
-			const event = new MouseEvent("click", { bubbles: true, cancelable: true, ctrlKey: item.ctrlKey, button: item.button ?? 0 });
+			const event = new MouseEvent("click", {
+				bubbles: true,
+				cancelable: true,
+				ctrlKey: item.ctrlKey,
+				button: item.button ?? 0,
+			});
 			if (item.handled) event.preventDefault();
 			// Cancel native jsdom navigation after the router has had the opportunity to handle it.
 			const cancelNative = (click: MouseEvent) => {
-				expect(click.defaultPrevented).toBe(!!item.handled);
+				expect(click.defaultPrevented).toBe(
+					!!item.handled,
+				);
 				click.preventDefault();
 			};
 			document.addEventListener("click", cancelNative);

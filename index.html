@@ -14,19 +14,35 @@
   <link rel="preload" as="image" href="%BASE_URL%planet.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link
-    href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap"
-    rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
   <style>
-    .initial-boot { position: fixed; inset: 0; display: grid; place-items: center; margin: 0; background: #090909; }
-    .initial-boot img { width: clamp(240px, 38vw, 410px); height: auto; image-rendering: pixelated; }
+    .initial-boot {
+      position: fixed;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      margin: 0;
+      background: #090909;
+    }
+
+    .initial-boot img {
+      width: clamp(240px, 38vw, 410px);
+      height: auto;
+      image-rendering: pixelated;
+    }
   </style>
   <title>Mars Command // Colony Network</title>
 </head>
 
 <body>
-  <div id="root"><div class="initial-boot"><img src="%BASE_URL%planet.png" width="1024" height="1024" alt="Loading Mars Command" fetchpriority="high" /></div></div>
-  <noscript><p style="position: fixed; inset: auto 20px 20px; z-index: 101; color: #ededed; font-family: monospace;">Mars Command requires JavaScript for live telemetry and account access. Please enable it to open mission control.</p></noscript>
+  <div id="root">
+    <div class="initial-boot"><img src="%BASE_URL%planet.png" width="1024" height="1024" alt="Loading Mars Command"
+        fetchpriority="high" /></div>
+  </div>
+  <noscript>
+    <p style="position: fixed; inset: auto 20px 20px; z-index: 101; color: #ededed; font-family: monospace;">Mars
+      Command requires JavaScript for live telemetry and account access. Please enable it to open mission control.</p>
+  </noscript>
   <script type="module" src="/src/main.tsx"></script>
 </body>
 
