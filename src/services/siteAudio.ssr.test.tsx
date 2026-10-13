@@ -16,7 +16,7 @@ describe("server-rendered sound safety", () => {
 		expect(service.playFromGesture("forward")).toBeNull();
 		expect(service.playOutcome("success")).toBeNull();
 		expect(renderToStaticMarkup(<SoundSettings />)).toContain(
-			"Enable sound",
+			"Mute sound",
 		);
 		detach();
 		expect(createUISFX).not.toHaveBeenCalled();

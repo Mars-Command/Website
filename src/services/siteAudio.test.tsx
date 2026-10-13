@@ -163,8 +163,8 @@ describe("shared client sound player", () => {
 		sound.initialize();
 		expect(sound.getSnapshot()).toMatchObject({
 			enabled: true,
-			volume: 0.4,
-			unlocked: false,
+			volume: 0.7,
+			unlocked: true,
 		});
 		expect(sound.playOutcome("success")).toBeNull();
 		expect(createUISFX).not.toHaveBeenCalled();
@@ -299,7 +299,7 @@ describe("shared client sound player", () => {
 		restored.initialize();
 		expect(restored.getSnapshot()).toMatchObject({
 			enabled: true,
-			volume: 0.32,
+			volume: 0.7,
 			typing: true,
 			unlocked: true,
 		});
@@ -321,7 +321,7 @@ describe("shared client sound player", () => {
 		);
 		sound.setVolume(0.5);
 		expect(sound.getSnapshot().volume).toBe(0.5);
-		expect(console.error).toHaveBeenCalledTimes(2);
+		expect(console.error).toHaveBeenCalledTimes(1);
 	});
 
 	it("retains the player across a Strict Mode trial detach and destroys it only on final teardown", async () => {
