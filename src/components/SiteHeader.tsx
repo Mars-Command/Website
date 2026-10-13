@@ -7,6 +7,7 @@ import type { MissionView } from "../data/missionViews";
 import { pulseTarget } from "../utils/pulseTarget";
 import { MissionNavigation } from "./MissionNavigation";
 import { StatusBadge } from "./StatusBadge";
+import { siteAudio } from "../services/siteAudio";
 
 type SiteHeaderProps = {
 	online: boolean | null;
@@ -37,7 +38,9 @@ export function SiteHeader({ online, checking, onHome, activeView = null, onNavi
 			if (event.target instanceof Node && !header.current?.contains(event.target)) closeMenu();
 		};
 		const escape = (event: KeyboardEvent) => {
-			if (event.key === "Escape" && !event.defaultPrevented) { event.preventDefault(); closeMenu(true); }
+			if (event.key === "Escape" && !event.defaultPrevented) {
+				event.preventDefault(); closeMenu(true); siteAudio.playFromGesture("close");
+			}
 		};
 		const media = window.matchMedia?.("(max-width: 760px)");
 		const resized = () => { if (media && !media.matches) closeMenu(); };
@@ -90,7 +93,10 @@ export function SiteHeader({ online, checking, onHome, activeView = null, onNavi
 				</>}
 				{hasMenu && <button ref={toggle} type="button" className="header-menu-toggle"
 					aria-label={`${menuOpen ? "Close" : "Open"} ${menuLabel} menu`}
-					aria-expanded={menuOpen} aria-controls={menuId} onClick={() => setMenuOpen(open => !open)}>
+					aria-expanded={menuOpen} aria-controls={menuId} onClick={() => {
+						setMenuOpen(!menuOpen);
+						siteAudio.playFromGesture(menuOpen ? "close" : "open");
+					}}>
 					{menuOpen ? <X size={18} aria-hidden="true" /> : <Menu size={18} aria-hidden="true" />}
 					<span>{menuOpen ? "Close" : "Menu"}</span>
 				</button>}

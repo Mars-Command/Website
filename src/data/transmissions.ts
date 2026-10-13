@@ -6,6 +6,11 @@ export type Transmission = {
 
 export const transmissions: Transmission[] = [
 	{
+		severity: "info",
+		title: "Optional colony interface sounds added",
+		body: "Enable sound for restrained sci-fi navigation, confirmed account actions, and private-upload feedback. Volume and typing preferences are saved; audio never starts automatically or replaces visual status.",
+	},
+	{
 		severity: "success",
 		title: "Interactive mission files added",
 		body: "Directory selections now run clear and cat before typing a detailed view. New selections replace unfinished transitions instead of queuing stale output.",

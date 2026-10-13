@@ -8,6 +8,8 @@ import { capsuleApi } from "../services/capsuleApi";
 import type { Capsule } from "../types/capsule";
 import { MAX_JAR_BYTES } from "../utils/capsuleUi";
 import { CapsuleSubmissions } from "./CapsuleSubmissions";
+import { siteAudio } from "../services/siteAudio";
+import { recordProcessSounds } from "../services/siteAudio.testUtils";
 
 const input = { project: "Mars mod", version: "1", sourceUrl: "https://example.com/mod" };
 const reserved: Capsule = { ...input, releaseId: "a".repeat(32), ownerId: "42", artifactSha256: null,
@@ -37,8 +39,8 @@ afterEach(async () => {
 	container.remove();
 	vi.restoreAllMocks();
 });
-async function render(ownerId = "42") {
-	await act(async () => root.render(<CapsuleSubmissions key={ownerId} ownerId={ownerId} onSessionExpired={expired} />));
+async function render(ownerId = "42", active = true) {
+	await act(async () => root.render(<CapsuleSubmissions key={ownerId} ownerId={ownerId} active={active} onSessionExpired={expired} />));
 }
 function button(text: string) {
 	const found = [...container.querySelectorAll("button")].find(value => value.textContent === text);
@@ -78,6 +80,76 @@ function deferred<T>() {
 }
 
 describe("private JAR submission UX", () => {
+	it("plays complete only after digest confirmation, not when progress reaches 100%", async () => {
+		const processes = recordProcessSounds();
+		const pending = deferred<Capsule>();
+		let progress!: (value: number) => void;
+		vi.mocked(capsuleApi.upload).mockImplementationOnce((_id, _file, _owner, _signal, report) => { progress = report; return pending.promise; });
+		await render(); await ready();
+		vi.mocked(siteAudio.playOutcome).mockClear();
+		await submit();
+		await act(async () => progress(100));
+		expect(processes[0].active).toBe(true);
+		expect(siteAudio.playOutcome).not.toHaveBeenCalled();
+		await act(async () => pending.resolve(blocked));
+		expect(siteAudio.playOutcome).toHaveBeenCalledExactlyOnceWith("complete");
+		expect(processes[0].active).toBe(false);
+	});
+
+	it.each(["Reservation timed out", "Upload refused"])("stops a failed request before error feedback: %s", async message => {
+		const processes = recordProcessSounds();
+		vi.mocked(capsuleApi.reserve).mockRejectedValueOnce(new ApiError(message));
+		await render(); await ready();
+		vi.mocked(siteAudio.playOutcome).mockClear();
+		await submit();
+		expect(siteAudio.playOutcome).toHaveBeenCalledExactlyOnceWith("error");
+		expect(processes[0].active).toBe(false);
+	});
+
+	it.each(["cancel", "hide", "identity-change"] as const)("stops the upload sound on %s and suppresses its late outcome", async exit => {
+		const processes = recordProcessSounds();
+		const pending = deferred<Capsule>();
+		vi.mocked(capsuleApi.upload).mockReturnValueOnce(pending.promise);
+		await render(); await ready();
+		vi.mocked(siteAudio.playOutcome).mockClear();
+		await submit();
+		const signal = vi.mocked(capsuleApi.upload).mock.calls[0][3];
+		if (exit === "cancel") await click("Cancel JAR upload");
+		else if (exit === "hide") await render("42", false);
+		else await render("99");
+		expect(processes[0].active).toBe(false);
+		expect(signal.aborted).toBe(exit !== "hide");
+		await act(async () => pending.resolve(blocked));
+		expect(siteAudio.playOutcome).not.toHaveBeenCalled();
+	});
+
+	it("uses delete only for a backend-confirmed withdrawal", async () => {
+		const processes = recordProcessSounds();
+		const pending = deferred<Capsule>();
+		vi.mocked(capsuleApi.mine).mockResolvedValueOnce([blocked]);
+		vi.mocked(capsuleApi.withdraw).mockReturnValueOnce(pending.promise);
+		await render();
+		await click("Withdraw Mars mod");
+		expect(siteAudio.playFromGesture).toHaveBeenCalledWith("warning");
+		await click("Confirm withdrawal");
+		expect(siteAudio.playOutcome).not.toHaveBeenCalled();
+		await act(async () => pending.resolve({ ...blocked, state: "withdrawn", revision: 3 }));
+		expect(siteAudio.playOutcome).toHaveBeenCalledExactlyOnceWith("delete");
+		expect(processes[0].active).toBe(false);
+	});
+
+	it("does not claim destructive success for an unconfirmed withdrawal", async () => {
+		recordProcessSounds();
+		vi.mocked(capsuleApi.mine).mockResolvedValueOnce([blocked]);
+		vi.mocked(capsuleApi.withdraw).mockRejectedValueOnce(new ApiError("Mission control did not confirm withdrawal."));
+		await render();
+		await click("Withdraw Mars mod");
+		await click("Confirm withdrawal");
+		expect(siteAudio.playOutcome).toHaveBeenCalledExactlyOnceWith("error");
+		expect(container.textContent).toContain("did not confirm withdrawal");
+		expect(container.textContent).not.toContain("Backend confirmed withdrawal");
+	});
+
 	it("reserves immutable metadata, uploads raw selected file and explains scanner blocking", async () => {
 		await render();
 		await ready();

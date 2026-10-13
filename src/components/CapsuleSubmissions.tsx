@@ -5,10 +5,15 @@ import { capsuleApi } from "../services/capsuleApi";
 import type { Capsule, CapsuleInput } from "../types/capsule";
 import { canRetryCapsule, canWithdrawCapsule, capsuleStatusText, mergeCapsules, validateCapsuleInput, validateJar } from "../utils/capsuleUi";
 import { TerminalMessage } from "./AccountShell";
+import { useProcessSound } from "../hooks/useProcessSound";
+import { siteAudio } from "../services/siteAudio";
+import type { OneShotCue } from "../services/siteAudio";
 
 const emptyInput = (): CapsuleInput => ({ project: "", version: "", sourceUrl: "" });
 
-export function CapsuleSubmissions({ ownerId, onSessionExpired }: { ownerId: string; onSessionExpired: () => void }) {
+export function CapsuleSubmissions({ ownerId, onSessionExpired, active = true }:
+	{ ownerId: string; onSessionExpired: () => void; active?: boolean }) {
+	const processSound = useProcessSound(active);
 	const [capsules, setCapsules] = useState<Capsule[]>([]);
 	const records = useRef<Capsule[]>([]);
 	const [input, setInput] = useState<CapsuleInput>(emptyInput);
@@ -49,8 +54,10 @@ export function CapsuleSubmissions({ ownerId, onSessionExpired }: { ownerId: str
 		return () => { controller.current?.abort(); request.abort(); };
 	}, [ownerId]);
 
-	async function run(operation: (signal: AbortSignal) => Promise<void>) {
+	async function run(operation: (signal: AbortSignal) => Promise<OneShotCue | void>, cue: OneShotCue = "success") {
 		if (lock.current) return;
+		const process = processSound.start();
+		let outcome: OneShotCue | null = null;
 		lock.current = true;
 		const request = new AbortController();
 		controller.current = request;
@@ -58,13 +65,17 @@ export function CapsuleSubmissions({ ownerId, onSessionExpired }: { ownerId: str
 		setError("");
 		setMessage("");
 		try {
-			await operation(request.signal);
+			const result = await operation(request.signal);
+			if (!request.signal.aborted) outcome = result ?? cue;
 		} catch (error) {
 			if (!request.signal.aborted) {
 				setError(errorMessage(error));
+				outcome = "error";
 				if (error instanceof ApiError && error.status === 401) sessionExpired.current();
 			}
 		} finally {
+			if (outcome) process?.finish(outcome);
+			else process?.stop();
 			if (!request.signal.aborted) { lock.current = false; setBusy(false); setProgress(null); }
 		}
 	}
@@ -72,7 +83,7 @@ export function CapsuleSubmissions({ ownerId, onSessionExpired }: { ownerId: str
 	function submit(event: FormEvent) {
 		event.preventDefault();
 		const invalid = validateJar(file) || validateCapsuleInput(input);
-		if (invalid) { setError(invalid); return; }
+		if (invalid) { setError(invalid); siteAudio.playFromGesture("error"); return; }
 		const jar = file!;
 		const payload = { project: input.project.trim(), version: input.version.trim(), sourceUrl: input.sourceUrl.trim() };
 		void run(async signal => {
@@ -87,11 +98,11 @@ export function CapsuleSubmissions({ ownerId, onSessionExpired }: { ownerId: str
 				setReservation(id);
 				if (reserved.artifactSha256) {
 					setMessage("The earlier request already bound a JAR. Status refreshed; no second upload was sent.");
-					return;
+					return "info";
 				}
 				if (reserved.state !== "reserved") {
 					setMessage("The reservation is not currently awaiting bytes. Refresh its status before retrying; no JAR was sent.");
-					return;
+					return "blocked";
 				}
 			}
 			setProgress(0);
@@ -102,7 +113,7 @@ export function CapsuleSubmissions({ ownerId, onSessionExpired }: { ownerId: str
 			if (signal.aborted) return;
 			accept([uploaded]);
 			setMessage("Backend confirmed the JAR digest. Your submission is private and unpublished.");
-		});
+		}, "complete");
 	}
 
 	function refresh(id?: string) {
@@ -137,11 +148,13 @@ export function CapsuleSubmissions({ ownerId, onSessionExpired }: { ownerId: str
 			progress === 100 ? "JAR sent; waiting for backend validation and digest confirmation…" : `Uploading JAR: ${progress}%`}</TerminalMessage>}
 		{progress !== null && <progress aria-label="JAR upload progress" max={100} value={progress} />}
 		{progress !== null && <button onClick={() => {
+			processSound.stop();
 			controller.current?.abort();
 			lock.current = false;
 			setBusy(false);
 			setProgress(null);
 			setError("Upload cancelled locally. The backend may have received the JAR; refresh its status before retrying.");
+			siteAudio.playFromGesture("cancel");
 		}}>Cancel JAR upload</button>}
 		{error && <TerminalMessage error>{error}</TerminalMessage>}
 		{message && <TerminalMessage>{message}</TerminalMessage>}
@@ -155,12 +168,21 @@ export function CapsuleSubmissions({ ownerId, onSessionExpired }: { ownerId: str
 			<fieldset disabled={busy || idempotencyKey !== null || artifactAttempted || bound || !uploadEligible}>
 				<legend>JAR artifact</legend>
 				<label>JAR file<input key={fileInputKey} type="file" accept=".jar,application/java-archive"
-					onChange={event => { const selectedFile = event.target.files?.[0] ?? null; setFile(selectedFile); setError(validateJar(selectedFile)); }} /></label>
+					onClick={() => siteAudio.unlockFromGesture()}
+					onChange={event => {
+						const selectedFile = event.target.files?.[0] ?? null;
+						const invalid = validateJar(selectedFile);
+						setFile(selectedFile); setError(invalid);
+						if (selectedFile) siteAudio.playOutcome(invalid ? "error" : "select");
+					}} /></label>
 			</fieldset>
 			{file && <p>Selected: {file.name} ({file.size.toLocaleString()} bytes). Extension checks are help only, not a security scan.</p>}
 			{reservation && <p>Reservation: {reservation}. Retry uses the same release and selected bytes. Refresh after an interruption; a bound digest cannot be replaced.</p>}
 			<button type="submit" disabled={busy || bound || !uploadEligible}>{reservation ? "Retry JAR upload" : idempotencyKey ? "Retry reservation and upload" : "Reserve and upload JAR"}</button>
-			<button type="button" disabled={busy} onClick={reset}>Start a new submission</button>
+			<button type="button" disabled={busy} onClick={() => {
+				if (file || reservation || input.project || input.version || input.sourceUrl) siteAudio.playFromGesture("cancel");
+				reset();
+			}}>Start a new submission</button>
 		</form>
 		{!busy && capsules.length === 0 && !error && <p>No JAR submissions yet.</p>}
 		<ul className="profile-list">{capsules.map(capsule => <li key={capsule.releaseId}>
@@ -181,19 +203,27 @@ export function CapsuleSubmissions({ ownerId, onSessionExpired }: { ownerId: str
 				reset();
 				setInput({ project: capsule.project, version: capsule.version, sourceUrl: capsule.sourceUrl });
 				setReservation(capsule.releaseId);
+				siteAudio.playFromGesture("select");
 			}}>Choose JAR for {capsule.project}</button>}
 			{canRetryCapsule(capsule) && <button disabled={busy} onClick={() => void run(async signal => {
 				const result = await capsuleApi.retry(capsule.releaseId, ownerId, signal);
-				if (!signal.aborted) { accept([result]); setMessage("Retry requested. Backend policy still determines whether scanning can proceed; nothing was published."); }
+				if (!signal.aborted) {
+					accept([result]); setMessage("Retry requested. Backend policy still determines whether scanning can proceed; nothing was published.");
+					return result.state === "scan_pending" ? "queued" : result.state === "scan_blocked" || result.state === "rejected" ? "blocked" : "info";
+				}
 			})}>Retry scan for {capsule.project}</button>}
-			{canWithdrawCapsule(capsule) && <button disabled={busy} onClick={() => setConfirmWithdraw(capsule.releaseId)}>Withdraw {capsule.project}</button>}
+			{canWithdrawCapsule(capsule) && <button disabled={busy} onClick={() => {
+				setConfirmWithdraw(capsule.releaseId); siteAudio.playFromGesture("warning");
+			}}>Withdraw {capsule.project}</button>}
 			{confirmWithdraw === capsule.releaseId && <div className="delete-confirmation">
 				<p>Withdraw this unpublished release? This is terminal; retained quarantine bytes follow backend cleanup policy.</p>
 				<button disabled={busy} onClick={() => void run(async signal => {
 					const result = await capsuleApi.withdraw(capsule.releaseId, ownerId, signal);
-					if (!signal.aborted) { accept([result]); setConfirmWithdraw(null); setMessage("Backend confirmed withdrawal. Nothing was published."); }
-				})}>Confirm withdrawal</button>
-				<button disabled={busy} onClick={() => setConfirmWithdraw(null)}>Cancel withdrawal</button>
+					if (!signal.aborted) {
+						accept([result]); setConfirmWithdraw(null); setMessage("Backend confirmed withdrawal. Nothing was published.");
+					}
+				}, "delete")}>Confirm withdrawal</button>
+				<button disabled={busy} onClick={() => { setConfirmWithdraw(null); siteAudio.playFromGesture("cancel"); }}>Cancel withdrawal</button>
 			</div>}
 		</li>)}</ul>
 	</section>;

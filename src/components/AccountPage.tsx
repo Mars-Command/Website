@@ -6,7 +6,10 @@ import { accountViews } from "../data/accountViews";
 import type { AccountView } from "../data/accountViews";
 import { useSession } from "../hooks/useSession";
 import { useTerminalNavigation } from "../hooks/useTerminalNavigation";
+import { useProcessSound } from "../hooks/useProcessSound";
 import { accountApi, errorMessage } from "../services/accountApi";
+import { siteAudio } from "../services/siteAudio";
+import type { OneShotCue } from "../services/siteAudio";
 import type { Profile, ProfileInput, ProfileMod, User } from "../types/account";
 import { copyProfileInput, validateProfileInput } from "../utils/accountUi";
 import { Identity, TerminalMessage } from "./AccountShell";
@@ -60,6 +63,7 @@ function AccountWorkspace({ user, loading, sessionError, retry, onSignedOut, sig
 	const activeView = navigation.transitioning ? navigation.target : navigation.view;
 	const target = accountViews.find(item => item.id === navigation.target)!;
 	const authorized = !!user && !loading && !sessionError;
+	const processSound = useProcessSound(authorized && !navigation.transitioning);
 	const [visited, setVisited] = useState({ personal: false, community: false, submissions: false });
 	const [revision, setRevision] = useState(0);
 	const [search, setSearch] = useState("");
@@ -92,8 +96,10 @@ function AccountWorkspace({ user, loading, sessionError, retry, onSignedOut, sig
 		}
 	}, [editorOpen, editingId, navigation.view, navigation.output, authorized]);
 
-	async function act(operation: () => Promise<unknown>, success: string, reset = false) {
+	async function act(operation: () => Promise<unknown>, success: string, reset = false, cue: OneShotCue = "success") {
 		if (busy) return;
+		const process = processSound.start();
+		let outcome: OneShotCue = "error";
 		setBusy(true);
 		setError("");
 		setMessage("");
@@ -107,9 +113,11 @@ function AccountWorkspace({ user, loading, sessionError, retry, onSignedOut, sig
 				setDeleteId(null);
 				setEditorOpen(false);
 			}
+			outcome = cue;
 		} catch (error) {
 			setError(errorMessage(error));
 		} finally {
+			process?.finish(outcome);
 			setBusy(false);
 		}
 	}
@@ -117,7 +125,7 @@ function AccountWorkspace({ user, loading, sessionError, retry, onSignedOut, sig
 	function save(event: FormEvent) {
 		event.preventDefault();
 		const invalid = validateProfileInput(input);
-		if (invalid) { setError(invalid); return; }
+		if (invalid) { setError(invalid); siteAudio.playFromGesture("error"); return; }
 		const payload = { ...input, name: input.name.trim(), mods: input.mods.map(mod => ({
 			...mod, name: mod.name.trim(), version: mod.version.trim(),
 			sourceUrl: mod.sourceUrl.trim(), sha256: mod.sha256.toLowerCase(),
@@ -131,6 +139,7 @@ function AccountWorkspace({ user, loading, sessionError, retry, onSignedOut, sig
 		setInput({ name: profile.name, description: profile.description, mods: profile.mods.map(mod => ({ ...mod })) });
 		setEditorOpen(true);
 		setError("");
+		siteAudio.playFromGesture("open");
 	}
 
 	function changeMod(index: number, field: keyof ProfileMod, value: string) {
@@ -149,7 +158,9 @@ function AccountWorkspace({ user, loading, sessionError, retry, onSignedOut, sig
 
 	const feedback = <>
 		{loading && <TerminalMessage>Checking your secure website session...</TerminalMessage>}
-		{sessionError && <><TerminalMessage error>{sessionError}</TerminalMessage><button disabled={loading || busy} onClick={retry}>Retry session check</button></>}
+		{sessionError && <><TerminalMessage error>{sessionError}</TerminalMessage><button disabled={loading || busy} onClick={() => {
+			retry(); siteAudio.playFromGesture("retry");
+		}}>Retry session check</button></>}
 		{!user && signedOut && <TerminalMessage>Website session signed out. Local drafts and upload context have been cleared.</TerminalMessage>}
 		{authorized && busy && <TerminalMessage>Sending request to mission control...</TerminalMessage>}
 		{authorized && error && <TerminalMessage error>{error}</TerminalMessage>}
@@ -210,7 +221,7 @@ function AccountWorkspace({ user, loading, sessionError, retry, onSignedOut, sig
 						{navigation.view === "personal" && (authorized ? <>
 							{editorOpen ? <TerminalBox key="editor" className="panel account-card profile-editor" aria-labelledby="profile-editor-heading">
 								<div className="account-card-heading"><h2 id="profile-editor-heading">{editingId ? "Edit personal profile" : "Create personal profile"}</h2>
-									<button disabled={busy} onClick={() => setEditorOpen(false)}>Back to profiles</button></div>
+									<button disabled={busy} onClick={() => { setEditorOpen(false); siteAudio.playFromGesture("close"); }}>Back to profiles</button></div>
 								<form onSubmit={save} aria-label={editingId ? "Edit personal profile" : "Create personal profile"} aria-busy={busy}>
 									<fieldset disabled={busy}>
 										<legend>Profile metadata</legend>
@@ -228,15 +239,19 @@ function AccountWorkspace({ user, loading, sessionError, retry, onSignedOut, sig
 										<div className="account-card-actions">
 											<button type="button" onClick={() => setInput({ ...input, mods: [...input.mods, emptyMod()] })}>Add mod metadata</button>
 											<button type="submit">{editingId ? "Save changes" : "Create private profile"}</button>
-											<button type="button" onClick={() => { setEditingId(null); setInput(emptyInput()); setEditorOpen(false); }}>{editingId ? "Cancel edit" : "Discard draft"}</button>
+											<button type="button" onClick={() => {
+												setEditingId(null); setInput(emptyInput()); setEditorOpen(false); siteAudio.playFromGesture("cancel");
+											}}>{editingId ? "Cancel edit" : "Discard draft"}</button>
 										</div>
 									</fieldset>
 								</form>
 							</TerminalBox> : <TerminalBox key="list" className="panel account-card" aria-labelledby="personal-heading">
 								<div className="account-card-heading"><h2 id="personal-heading">Your personal profiles</h2>
-									<button disabled={busy} onClick={() => setEditorOpen(true)}>{hasDraft ? editingId ? "Resume edit" : "Resume draft" : "Create profile"}</button></div>
+									<button disabled={busy} onClick={() => { setEditorOpen(true); siteAudio.playFromGesture("open"); }}>{hasDraft ? editingId ? "Resume edit" : "Resume draft" : "Create profile"}</button></div>
 								<p className="account-help">New profiles and public copies are private. Publication requires a separate submission accepted by the backend.</p>
-								{personal.error ? <><TerminalMessage error>{personal.error}</TerminalMessage><button disabled={busy} onClick={() => setRevision(value => value + 1)}>Retry profiles</button></> :
+								{personal.error ? <><TerminalMessage error>{personal.error}</TerminalMessage><button disabled={busy} onClick={() => {
+									setRevision(value => value + 1); siteAudio.playFromGesture("retry");
+								}}>Retry profiles</button></> :
 									personal.profiles === null ? <TerminalMessage>Loading personal profiles...</TerminalMessage> :
 										personal.profiles.length === 0 ? <p>No personal profiles yet.</p> :
 											<ul className="profile-list">{personal.profiles.map(profile => <li key={profile.id}>
@@ -245,14 +260,16 @@ function AccountWorkspace({ user, loading, sessionError, retry, onSignedOut, sig
 												<p className="profile-meta">{profile.mods.length} mods / Updated: {profile.updatedAt}</p>
 												<div className="account-card-actions">
 													<button disabled={busy} aria-label={`Edit ${profile.name}`} onClick={() => edit(profile)}>Edit</button>
-													<button disabled={busy} aria-label={`Delete ${profile.name}`} onClick={() => setDeleteId(profile.id)}>Delete</button>
+													<button disabled={busy} aria-label={`Delete ${profile.name}`} onClick={() => {
+														setDeleteId(profile.id); siteAudio.playFromGesture("warning");
+													}}>Delete</button>
 													<button disabled={busy || profile.visibility !== "private"} aria-label={`Submit ${profile.name} for publication`}
-														onClick={() => void act(() => accountApi.submit(profile.id), "Backend accepted the submission. See the refreshed profile for its visibility.")}>Submit for publication</button>
+														onClick={() => void act(() => accountApi.submit(profile.id), "Backend accepted the submission. See the refreshed profile for its visibility.", false, "queued")}>Submit for publication</button>
 												</div>
 												{deleteId === profile.id && <div className="delete-confirmation">
 													<p>Delete "{profile.name}"? This cannot be undone.</p>
-													<button disabled={busy} onClick={() => void act(() => accountApi.remove(profile.id), "Profile deleted.", true)}>Confirm deletion</button>
-													<button disabled={busy} onClick={() => setDeleteId(null)}>Cancel deletion</button>
+													<button disabled={busy} onClick={() => void act(() => accountApi.remove(profile.id), "Profile deleted.", true, "delete")}>Confirm deletion</button>
+													<button disabled={busy} onClick={() => { setDeleteId(null); siteAudio.playFromGesture("cancel"); }}>Cancel deletion</button>
 												</div>}
 											</li>)}</ul>}
 							</TerminalBox>}
@@ -264,7 +281,9 @@ function AccountWorkspace({ user, loading, sessionError, retry, onSignedOut, sig
 								<button type="submit" disabled={busy}>Search public profiles</button>
 							</form>
 							{!authorized && <p className="account-help"><a href={sitePath("auth/login")}>Sign in</a> to copy public metadata into an independent private profile.</p>}
-							{community.error ? <><TerminalMessage error>{community.error}</TerminalMessage><button disabled={busy} onClick={() => setRevision(value => value + 1)}>Retry public profiles</button></> :
+							{community.error ? <><TerminalMessage error>{community.error}</TerminalMessage><button disabled={busy} onClick={() => {
+								setRevision(value => value + 1); siteAudio.playFromGesture("retry");
+							}}>Retry public profiles</button></> :
 								community.profiles === null ? <TerminalMessage>Loading public profiles...</TerminalMessage> :
 									community.profiles.length === 0 ? <p>No public profiles matched this search.</p> :
 										<ul className="profile-list">{community.profiles.map(profile => <li key={profile.id}>
@@ -280,7 +299,8 @@ function AccountWorkspace({ user, loading, sessionError, retry, onSignedOut, sig
 					<section className="account-persistent-pane" hidden={navigation.view !== "submissions"} inert={navigation.view !== "submissions"} aria-hidden={navigation.view !== "submissions"}>
 						{authorized && user && visited.submissions ? <TerminalSequence active={navigation.view === "submissions"} replayKey={navigation.output} onComplete={() => navigation.completeOutput(navigation.output)}>
 							<AccountHeading view="submissions" />{feedback}
-							<TerminalBox className="panel account-card"><CapsuleSubmissions ownerId={user.id} onSessionExpired={retry} /></TerminalBox>
+							<TerminalBox className="panel account-card"><CapsuleSubmissions ownerId={user.id} onSessionExpired={retry}
+								active={navigation.view === "submissions" && !navigation.transitioning} /></TerminalBox>
 						</TerminalSequence> : navigation.view === "submissions" && <TerminalSequence key={navigation.output} onComplete={() => navigation.completeOutput(navigation.output)}>
 							<AccountHeading view="submissions" />{feedback}{accessPanel()}
 						</TerminalSequence>}
@@ -306,8 +326,10 @@ export function AccountPage() {
 	return <PageExperience ready={!loading}>
 		<AccountWorkspace key={user?.id ?? "anonymous"} user={user} loading={loading} sessionError={sessionError} retry={retry}
 			signedOut={notice.signedOut} onSignedOut={() => {
+				siteAudio.stopAll();
 				setNotice(current => current.ownerId === user?.id ? { ...current, signedOut: true } : current);
 				setUser(current => current?.id === user?.id ? null : current);
+				siteAudio.playOutcome("disconnect");
 			}} />
 	</PageExperience>;
 }

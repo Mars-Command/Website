@@ -12,6 +12,8 @@ import type { Profile } from "../types/account";
 import type { Capsule } from "../types/capsule";
 import { AccountPage } from "./AccountPage";
 import { AuthLogin } from "./AuthLogin";
+import { siteAudio } from "../services/siteAudio";
+import { recordProcessSounds } from "../services/siteAudio.testUtils";
 
 vi.mock("../config/account", async importOriginal => ({
 	...await importOriginal<typeof import("../config/account")>(),
@@ -83,8 +85,9 @@ async function inputValue(element: HTMLInputElement | HTMLTextAreaElement, value
 }
 function deferred<T>() {
 	let resolve!: (value: T) => void;
-	const promise = new Promise<T>(yes => { resolve = yes; });
-	return { promise, resolve };
+	let reject!: (error: Error) => void;
+	const promise = new Promise<T>((yes, no) => { resolve = yes; reject = no; });
+	return { promise, resolve, reject };
 }
 const release: Capsule = {
 	project: "Workspace artifact", version: "1", sourceUrl: "https://example.com/mod",
@@ -222,6 +225,82 @@ describe("explicit desktop identity confirmation", () => {
 });
 
 describe("personal profile operations", () => {
+	it("plays save feedback only after a successful backend response", async () => {
+		const processes = recordProcessSounds();
+		const pending = deferred<Profile>();
+		vi.spyOn(accountApi, "create").mockReturnValue(pending.promise);
+		await render(<AccountPage />);
+		await openView("Personal profiles");
+		await click(button("Create profile"));
+		const form = container.querySelector<HTMLFormElement>('form[aria-label="Create personal profile"]')!;
+		await inputValue(form.querySelector<HTMLInputElement>("input")!, "New mission");
+		vi.mocked(siteAudio.playOutcome).mockClear();
+		await act(async () => form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })));
+		expect(processes[0].active).toBe(true);
+		expect(siteAudio.playOutcome).not.toHaveBeenCalled();
+		await act(async () => pending.resolve(personal));
+		expect(siteAudio.playOutcome).toHaveBeenCalledExactlyOnceWith("success");
+		expect(processes[0].active).toBe(false);
+	});
+
+	it("warns on deletion review but plays delete only after committed removal", async () => {
+		const processes = recordProcessSounds();
+		const pending = deferred<void>();
+		vi.spyOn(accountApi, "remove").mockReturnValue(pending.promise);
+		await render(<AccountPage />);
+		await openView("Personal profiles");
+		await click(button("Delete Personal mission"));
+		expect(siteAudio.playFromGesture).toHaveBeenCalledWith("warning");
+		expect(siteAudio.playOutcome).not.toHaveBeenCalled();
+		await click(button("Confirm deletion"));
+		expect(siteAudio.playOutcome).not.toHaveBeenCalled();
+		await act(async () => pending.resolve());
+		expect(siteAudio.playOutcome).toHaveBeenCalledExactlyOnceWith("delete");
+		expect(processes[0].active).toBe(false);
+	});
+
+	it("plays validation error without starting a request or loop", async () => {
+		const processes = recordProcessSounds();
+		const create = vi.spyOn(accountApi, "create");
+		await render(<AccountPage />);
+		await openView("Personal profiles");
+		await click(button("Create profile"));
+		vi.mocked(siteAudio.playFromGesture).mockClear();
+		const form = container.querySelector('form[aria-label="Create personal profile"]')!;
+		await act(async () => form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })));
+		expect(siteAudio.playFromGesture).toHaveBeenCalledExactlyOnceWith("error");
+		expect(create).not.toHaveBeenCalled();
+		expect(processes).toHaveLength(0);
+	});
+
+	it.each([true, false])("waits for actual authorization resolution (success: %s)", async success => {
+		const processes = recordProcessSounds();
+		const pending = deferred<void>();
+		vi.mocked(accountApi.approve).mockReturnValue(pending.promise);
+		await render(<AuthLogin search="?requestId=r1" />);
+		await click(container.querySelector<HTMLInputElement>('input[type="checkbox"]')!);
+		expect(siteAudio.playFromGesture).toHaveBeenCalledExactlyOnceWith("check");
+		await click(button("Continue as astronaut"));
+		expect(siteAudio.playOutcome).not.toHaveBeenCalled();
+		if (success) await act(async () => pending.resolve());
+		else await act(async () => pending.reject(new ApiError("Approval expired", 410)));
+		expect(siteAudio.playOutcome).toHaveBeenCalledExactlyOnceWith(success ? "success" : "error");
+		expect(processes[0].active).toBe(false);
+	});
+
+	it("stops global audio only after logout is confirmed, without a duplicate success cue", async () => {
+		recordProcessSounds();
+		const pending = deferred<void>();
+		vi.spyOn(accountApi, "logout").mockReturnValue(pending.promise);
+		await render(<AccountPage />);
+		await click(button("Sign out"));
+		expect(siteAudio.stopAll).not.toHaveBeenCalled();
+		expect(siteAudio.playOutcome).not.toHaveBeenCalled();
+		await act(async () => pending.resolve());
+		expect(siteAudio.stopAll).toHaveBeenCalledOnce();
+		expect(siteAudio.playOutcome).toHaveBeenCalledExactlyOnceWith("disconnect");
+	});
+
 	it("creates metadata-only private profiles through the reachable form", async () => {
 		const create = vi.spyOn(accountApi, "create").mockResolvedValue(personal);
 		const submit = vi.spyOn(accountApi, "submit");

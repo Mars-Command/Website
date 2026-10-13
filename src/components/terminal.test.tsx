@@ -6,7 +6,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "../App";
 import { transmissions } from "../data/transmissions";
 import { useServerStatus } from "../hooks/useServerStatus";
-import { PageExperience, PLANET_FADE_MS, TerminalBox, TerminalFade, TerminalSequence, TerminalText } from "./TerminalExperience";
+import { siteAudio } from "../services/siteAudio";
+import { PageExperience, PLANET_BOOT_MS, PLANET_FADE_MS, TerminalBox, TerminalFade, TerminalSequence, TerminalText } from "./TerminalExperience";
 
 vi.mock("../hooks/useServerStatus", () => ({ useServerStatus: vi.fn() }));
 
@@ -66,6 +67,11 @@ async function imageEvent(type = "load") {
 	await advance(16);
 }
 async function advance(ms: number) { await act(async () => vi.advanceTimersByTime(ms)); }
+async function enterTerminal() {
+	await advance(PLANET_BOOT_MS - PLANET_FADE_MS);
+	await advance(16);
+	await advance(PLANET_FADE_MS);
+}
 function lines() { return Array.from(container.querySelectorAll("[data-type-line]")); }
 function click(text: string) {
 	const button = Array.from(container.querySelectorAll("button")).find(item => item.textContent === text);
@@ -74,6 +80,22 @@ function click(text: string) {
 }
 
 describe("planet boot and terminal reveal", () => {
+	it("keeps a ready page loading for about four seconds including the fade", async () => {
+		await render();
+		await imageEvent();
+		expect(PLANET_BOOT_MS).toBe(4000);
+		await advance(PLANET_BOOT_MS - PLANET_FADE_MS - 17);
+		expect(container.querySelector("[data-phase]")?.getAttribute("data-phase")).toBe("loading");
+		await advance(1);
+		await advance(16);
+		expect(container.querySelector("[data-phase]")?.getAttribute("data-phase")).toBe("fading");
+		await advance(PLANET_FADE_MS - 1);
+		expect(container.querySelector(".is-entered")).toBeNull();
+		await advance(1);
+		expect(container.querySelector(".planet-loader")).toBeNull();
+		expect(container.querySelector(".is-entered")).not.toBeNull();
+	});
+
 	it("waits for document, fonts, image and initial data before the exact 1.5-second fade", async () => {
 		vi.spyOn(document, "readyState", "get").mockReturnValue("loading");
 		let finishFonts: () => void = () => {};
@@ -104,7 +126,7 @@ describe("planet boot and terminal reveal", () => {
 	it("types top to bottom, reserves full text, and does not replay on live updates", async () => {
 		await render();
 		await imageEvent();
-		await advance(1500);
+		await enterTerminal();
 		await advance(80);
 		expect(lines()[0].querySelector(".typed-output")?.textContent?.length).toBeGreaterThan(0);
 		expect(lines()[1].querySelector(".typed-output")?.textContent).toBe("");
@@ -152,7 +174,7 @@ describe("planet boot and terminal reveal", () => {
 		root = createRoot(container);
 		await render();
 		await imageEvent();
-		await advance(1500);
+		await enterTerminal();
 		await click("Skip typing");
 		expect(lines().every(line => line.classList.contains("is-typed"))).toBe(true);
 		expect(container.querySelector(".terminal-fade")?.classList.contains("no-motion")).toBe(true);
@@ -163,6 +185,7 @@ describe("planet boot and terminal reveal", () => {
 		await imageEvent("error");
 		expect(container.querySelector('[role="alert"]')?.textContent).toContain("Planet image unavailable");
 		await render();
+		await advance(PLANET_BOOT_MS - PLANET_FADE_MS);
 		await advance(16);
 		expect(container.querySelector("[data-phase]")?.getAttribute("data-phase")).toBe("fading");
 		await advance(1500);
@@ -182,7 +205,7 @@ describe("planet boot and terminal reveal", () => {
 		const first = container.querySelector("#first-box")!;
 		const second = container.querySelector("#second-box")!;
 		await imageEvent();
-		await advance(1500);
+		await enterTerminal();
 		await advance(80);
 		expect(first.classList.contains("is-drawn")).toBe(false);
 		expect(second.classList.contains("is-drawn")).toBe(false);
@@ -206,7 +229,7 @@ async function renderApp() {
 async function openApp() {
 	await renderApp();
 	await imageEvent();
-	await advance(1500);
+	await enterTerminal();
 	await advance(30000);
 }
 async function select(label: string) {
@@ -219,6 +242,20 @@ function view() { return container.querySelector("main")?.getAttribute("data-vie
 function command() { return container.querySelector(".terminal-command-line .typed-source")?.textContent; }
 
 describe("mission file navigation", () => {
+	it("plays one menu cue and one navigation cue, not an extra automatic close or repeated-selection cue", async () => {
+		reduced = true;
+		const play = vi.spyOn(siteAudio, "playFromGesture").mockReturnValue(null);
+		await openApp();
+		await select("Overview");
+		expect(play).not.toHaveBeenCalled();
+		await act(async () => container.querySelector<HTMLButtonElement>(".header-menu-toggle")!.click());
+		const item = Array.from(container.querySelectorAll<HTMLButtonElement>(".mobile-directory-nav button"))
+			.find(button => button.textContent?.includes("Server uplink"))!;
+		await act(async () => item.click());
+		expect(play.mock.calls.map(([cue]) => cue)).toEqual(["open", "forward"]);
+		expect(container.querySelector<HTMLDivElement>(".mobile-mission-menu")?.hidden).toBe(true);
+	});
+
 	it("types clear, removes output, types cat, then types the selected detailed view", async () => {
 		await openApp();
 		const sidebar = container.querySelector("aside");

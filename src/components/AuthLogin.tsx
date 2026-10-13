@@ -5,10 +5,13 @@ import { accountApi, errorMessage } from "../services/accountApi";
 import { AccountShell, Identity, TerminalMessage } from "./AccountShell";
 import { readLoginQuery } from "../utils/accountUi";
 import type { AuthorizationRequest } from "../types/account";
+import { useProcessSound } from "../hooks/useProcessSound";
+import { siteAudio } from "../services/siteAudio";
 
 export function AuthLogin({ search = window.location.search, navigate = (url: string) => window.location.assign(url) }:
 	{ search?: string; navigate?: (url: string) => void }) {
 	const { user, setUser, loading, error: sessionError, retry } = useSession();
+	const processSound = useProcessSound(!loading);
 	const { requestId, invalidRequest, authResult } = readLoginQuery(search);
 	const [confirmedKey, setConfirmedKey] = useState<string | null>(null);
 	const [busy, setBusy] = useState(false);
@@ -51,11 +54,14 @@ export function AuthLogin({ search = window.location.search, navigate = (url: st
 			navigate(accountApi.githubStart(requestId ?? undefined, switchAccount));
 		} catch (error) {
 			setError(errorMessage(error));
+			siteAudio.playFromGesture("error");
 		}
 	}
 
 	async function approve() {
 		if (!requestId || !user || !requestKey || !details || !confirmed || busy || approved || requestLoading) return;
+		const process = processSound.start("connecting");
+		let outcome: "success" | "error" = "error";
 		setBusy(true);
 		setError("");
 		try {
@@ -75,10 +81,12 @@ export function AuthLogin({ search = window.location.search, navigate = (url: st
 			if (currentRequest.kind === "minecraft") await accountApi.approveMinecraft(requestId);
 			else await accountApi.approve(requestId);
 			setApprovedKey(requestKey);
+			outcome = "success";
 		} catch (error) {
 			setConfirmed(false);
 			setError(errorMessage(error));
 		} finally {
+			process?.finish(outcome);
 			setBusy(false);
 		}
 	}
@@ -89,12 +97,16 @@ export function AuthLogin({ search = window.location.search, navigate = (url: st
 		{authResult === "success" && !approved && <TerminalMessage>GitHub sign-in returned. Checking the website session; approval still requires your confirmation.</TerminalMessage>}
 		{invalidRequest && <TerminalMessage error>Invalid authorization request. Return to Minecraft or the launcher and start again.</TerminalMessage>}
 		{loading && <TerminalMessage>Checking your secure website session…</TerminalMessage>}
-		{sessionError && <><TerminalMessage error>{sessionError}</TerminalMessage><button onClick={retry} disabled={loading}>Retry session check</button></>}
+		{sessionError && <><TerminalMessage error>{sessionError}</TerminalMessage><button onClick={() => {
+			retry(); siteAudio.playFromGesture("retry");
+		}} disabled={loading}>Retry session check</button></>}
 		{error && <TerminalMessage error>{error}</TerminalMessage>}
 		{requestError && <TerminalMessage error>{requestError}</TerminalMessage>}
 		{requestLoading && <TerminalMessage>Checking the requested connection with mission control...</TerminalMessage>}
 		{requestId && user && !requestLoading && !details && !invalidRequest &&
-			<button onClick={() => { setError(""); setRequestRevision(value => value + 1); }}>Retry request check</button>}
+			<button onClick={() => {
+				setError(""); setRequestRevision(value => value + 1); siteAudio.playFromGesture("retry");
+			}}>Retry request check</button>}
 		{!loading && !sessionError && !invalidRequest && !approved && (user ? <>
 			<Identity user={user} />
 			{requestId ? details && !requestLoading && <>
@@ -104,7 +116,10 @@ export function AuthLogin({ search = window.location.search, navigate = (url: st
 					It does not grant access to private profiles or files. Finish linking by reviewing and confirming this account in Minecraft.</p>}
 				<label className="confirmation">
 					<input type="checkbox" checked={confirmed} disabled={busy}
-						onChange={event => setConfirmed(event.target.checked)} />
+						onChange={event => {
+							setConfirmed(event.target.checked);
+							siteAudio.playFromGesture(event.target.checked ? "check" : "uncheck");
+						}} />
 					I confirm that {user.username} is the GitHub identity I want to use {minecraft ?
 						`for Minecraft Player ${details.callSign}` : "in my desktop launcher"}.
 				</label>

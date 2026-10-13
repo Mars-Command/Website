@@ -1,6 +1,7 @@
 import { useCallback, useLayoutEffect, useState } from "react";
 import type { RefObject } from "react";
 import { useTerminalMotion } from "./useTerminalMotion";
+import { siteAudio } from "../services/siteAudio";
 
 type Navigation<View extends string> = {
 	view: View | null;
@@ -17,13 +18,15 @@ export function useTerminalNavigation<View extends string>(initialView: View,
 		view: initialView, target: initialView, phase: "typing", request: 0, output: 0,
 	});
 	const navigate = useCallback((view: View) => {
+		siteAudio.stopLoops();
 		const animate = beginNavigation();
 		setNavigation(current => ({
 			view: animate ? current.view : view, target: view, phase: animate ? "clear" : "typing",
 			request: current.request + 1, output: animate ? current.output : current.request + 1,
 		}));
+		if (view !== navigation.target) siteAudio.playFromGesture("forward");
 		if (animate) prompt.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-	}, [beginNavigation, prompt]);
+	}, [beginNavigation, prompt, navigation.target]);
 	const completeCommand = useCallback((phase: "clear" | "cat", request: number) => {
 		setNavigation(current => {
 			if (current.phase !== phase || current.request !== request) return current;

@@ -1058,6 +1058,84 @@ section[id] {
     border-radius: 4px;
 }
 
+.sound-controls {
+    position: fixed;
+    bottom: 12px;
+    left: 16px;
+    z-index: 101;
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    max-width: calc(100vw - 32px);
+}
+
+.sound-toggle,
+.sound-settings summary {
+    background: #161616;
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    white-space: nowrap;
+}
+
+.sound-settings {
+    position: relative;
+    color: var(--muted);
+    font-size: 9px;
+}
+
+.sound-settings summary {
+    padding: 12px;
+    cursor: pointer;
+}
+
+.sound-settings-panel,
+.sound-message {
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 0;
+    width: min(280px, calc(100vw - 32px));
+    padding: 16px;
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    background: #161616;
+    font-size: 10px;
+}
+
+.sound-settings-panel {
+    left: -96px;
+}
+
+.sound-settings-panel label {
+    display: block;
+}
+
+.sound-settings-panel label span {
+    float: right;
+}
+
+.sound-settings-panel input[type="range"] {
+    display: block;
+    width: 100%;
+    margin: 12px 0 16px;
+    accent-color: var(--red);
+}
+
+.sound-settings-panel .sound-typing {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.sound-settings-panel p {
+    color: var(--muted);
+    margin-bottom: 0;
+    line-height: 1.6;
+}
+
+.sound-message {
+    margin: 0;
+}
+
 .page-content {
     visibility: hidden;
 }

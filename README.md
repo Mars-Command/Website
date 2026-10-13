@@ -16,7 +16,10 @@ The site uses a full-page, monochrome Bash-inspired workspace with a Mars-red
 accent: no simulated desktop window, title bar, or traffic-light controls.
 The planet is visible in the initial HTML, before the JavaScript bundle loads.
 On startup, the screen waits for the document, fonts, planet image, and initial
-telemetry (or account data) to settle, then fades to opacity zero over **1.5 seconds**.
+telemetry (or account data) to settle. The normal intro lasts approximately
+**four seconds**, including its **1.5-second** fade to opacity zero. Slow
+readiness checks can extend that duration; skip and reduced-motion behavior
+remain immediate once data and assets are ready.
 Only after that fade does the main terminal type its text in document order,
 while the sidebar fades in from top to bottom. Text reserves its final dimensions
 to prevent layout jumps; screen readers receive complete text, not character-by-character
@@ -74,6 +77,66 @@ menu exposes all five mission files plus direct account/sign-in links. Selecting
 a file closes the menu and runs the same terminal transition as desktop navigation.
 Escape, outside interaction, and resizing to desktop dismiss the menu. The main
 terminal appears first; telemetry and the installation guide stack beneath it.
+
+## Interface sounds
+
+The shared client-only player uses [`uisfx`](https://www.npmjs.com/package/uisfx)
+with the **`scifi`** pack and a default volume of **70%**. All 12
+[catalog packs](https://uisfx.com/uisfx-catalog.json) were reviewed, with browser
+previews of `scifi`, `mechanical`, and `arcade`. The restrained digital pings suit
+the colony-uplink theme, Minecraft community audience, red monochrome terminal,
+and deliberate file transitions better than arcade's brighter, denser texture
+or mechanical's industrial detents. Runtime cues are synthesized locally;
+no external audio service or per-click network request is used.
+
+Use **Enable sound** in the bottom-left corner. Sound is off by default and
+never autoplays, even when an enabled preference is restored after reloading.
+The first genuine activation resumes the retained Web Audio context. Until
+then, asynchronous feedback is discarded rather than queued. **Mute sound**
+stops all active audio immediately. **Sound settings** persists enabled state,
+volume, and optional typing sounds in `mars-command:sound` local storage.
+Storage and playback failures appear as textual status and are logged.
+Reduced motion remains a separate preference and does not mute audio.
+
+If sound is enabled during the loading screen, `public/sounds/opening.mp3`
+starts from that gesture and continues through the loader's removal to its
+natural end (about 5.83 seconds). `public/sounds/new_page.mp3` starts once with
+the initial typing reveal, without cutting off the opening track. Enabling
+sound after loading does not replay a stale opening or queue a missed typing
+cue. Skipping typing or
+requesting reduced motion does not manufacture a typing-start cue. Both asset
+URLs respect `BASE_PATH`; browsers that block playback retain an Enable sound
+fallback.
+
+| Product event | Cue |
+| --- | --- |
+| Mission/account file or internal route change | `forward`; browser history uses `back` / `forward` |
+| Explicit menu or profile editor opening/closing | `open` / `close` |
+| Authorization consent checkbox | `check` / `uncheck` |
+| Confirmed profile save/copy or authorization | `success`; failures use `error` |
+| Destructive confirmation / committed deletion or withdrawal | `warning` / `delete` |
+| Accepted publication or scan retry | `queued`; refused work uses `blocked` |
+| JAR upload with backend digest confirmation | `complete`, not at 100% bytes sent |
+| Explicit cancellation or draft discard | `cancel` |
+| Explicit status refresh | `loading`, then `success` / `error` |
+| Visible profile or submission request / approval | Quiet `processing` / `connecting`, then its actual outcome |
+| Sound or typing preference enabled | `toggle-on`; disabling typing uses `toggle-off` |
+| Opt-in local text-entry input | Brief `typing`, once per trusted input event at low volume, without a cooldown |
+| Confirmed website logout | Stop all audio, then `disconnect` |
+
+No sounds are added to hover, scrolling, background polling, live telemetry,
+automatic session checks, ordinary list repetition, or disabled controls.
+Each visible process retains an idempotent loop handle. Success, failure,
+timeout, cancellation, navigation, hidden submission views, identity changes,
+unmount, hidden browser tabs, mute, zero volume, and every `finally` path stop and clear it.
+Hiding a submission still does **not** cancel its upload; it only stops the
+now-invisible sound. Logout uses `stopAll()`. Final app teardown awaits
+`player.destroy()` before closing the caller-owned `AudioContext`; Strict Mode
+trial remounts do not duplicate or dispose the live player.
+
+The [pack-specific integration guide](https://uisfx.com/docs/agent-guide.md?pack=scifi)
+documents the underlying cue and lifecycle contract. Sound always reinforces
+the existing text, focus, progress, motion, error, and ARIA feedback.
 
 ```sh
 npm install

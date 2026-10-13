@@ -2,8 +2,10 @@ import { createContext, useCallback, useContext, useEffect, useLayoutEffect, use
 import type { CSSProperties, HTMLAttributes, ReactNode } from "react";
 import { sitePath } from "../config/account";
 import { TerminalMotionContext as ExperienceContext } from "../hooks/useTerminalMotion";
+import { siteAudio } from "../services/siteAudio";
 
 export const PLANET_FADE_MS = 1500;
+export const PLANET_BOOT_MS = 4000;
 
 type SequenceEntry =
 	| { kind: "text"; element: HTMLElement; length: () => number; show: (count: number | null) => void }
@@ -36,6 +38,7 @@ export function PageExperience({ children, ready = true }: { children: ReactNode
 	const [phase, setPhase] = useState<"loading" | "fading" | "content">("loading");
 	const [pageLoaded, setPageLoaded] = useState(document.readyState === "complete");
 	const [fontsLoaded, setFontsLoaded] = useState(!document.fonts);
+	const [bootElapsed, setBootElapsed] = useState(false);
 	const [planetLoaded, setPlanetLoaded] = useState(false);
 	const [planetError, setPlanetError] = useState(false);
 	const [skipped, setSkipped] = useState(false);
@@ -52,9 +55,22 @@ export function PageExperience({ children, ready = true }: { children: ReactNode
 		});
 	}, []);
 	const planet = useRef<HTMLImageElement>(null);
+	const intro = useRef<symbol | null>(null);
+	const entered = phase === "content";
+	const animate = !reduced && !skipped;
+
+	useLayoutEffect(() => {
+		const id = siteAudio.beginIntro();
+		intro.current = id;
+		return () => { siteAudio.endIntro(id); intro.current = null; };
+	}, []);
+	useLayoutEffect(() => {
+		if (entered && intro.current) siteAudio.enterIntro(intro.current, animate);
+	}, [entered, animate]);
 
 	useEffect(() => {
 		let active = true;
+		const timer = window.setTimeout(() => setBootElapsed(true), PLANET_BOOT_MS - PLANET_FADE_MS);
 		const loaded = () => setPageLoaded(true);
 		window.addEventListener("load", loaded);
 		if (document.readyState === "complete") loaded();
@@ -63,7 +79,7 @@ export function PageExperience({ children, ready = true }: { children: ReactNode
 			setPlanetLoaded(true);
 			setPlanetError(planet.current.naturalWidth === 0);
 		}
-		return () => { active = false; window.removeEventListener("load", loaded); };
+		return () => { active = false; window.clearTimeout(timer); window.removeEventListener("load", loaded); };
 	}, []);
 
 	useEffect(() => {
@@ -73,6 +89,7 @@ export function PageExperience({ children, ready = true }: { children: ReactNode
 				queueMicrotask(() => { if (active) setPhase("content"); });
 				return () => { active = false; };
 			}
+			if (!bootElapsed) return;
 			const frame = requestAnimationFrame(() => setPhase("fading"));
 			return () => cancelAnimationFrame(frame);
 		}
@@ -80,7 +97,7 @@ export function PageExperience({ children, ready = true }: { children: ReactNode
 			const timer = window.setTimeout(() => setPhase("content"), reduced || skipped ? 0 : PLANET_FADE_MS);
 			return () => window.clearTimeout(timer);
 		}
-	}, [phase, pageLoaded, fontsLoaded, planetLoaded, ready, reduced, skipped]);
+	}, [phase, pageLoaded, fontsLoaded, planetLoaded, ready, bootElapsed, reduced, skipped]);
 
 	useEffect(() => {
 		if (phase === "content") return;
@@ -89,8 +106,7 @@ export function PageExperience({ children, ready = true }: { children: ReactNode
 		return () => { document.body.style.overflow = previous; };
 	}, [phase]);
 
-	const entered = phase === "content";
-	return <ExperienceContext value={{ entered, animate: !reduced && !skipped, beginTyping, beginNavigation }}>
+	return <ExperienceContext value={{ entered, animate, beginTyping, beginNavigation }}>
 		{!entered && <div className={`planet-loader planet-loader--${phase}`} data-phase={phase}
 			onTransitionEnd={event => {
 				if (phase === "fading" && event.target === event.currentTarget && event.propertyName === "opacity") setPhase("content");

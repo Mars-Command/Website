@@ -5,6 +5,7 @@ import type { Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SiteRouter } from "./SiteRouter";
 import { sitePath } from "./config/account";
+import { siteAudio } from "./services/siteAudio";
 
 vi.mock("./App", () => ({ default: () => <main><a href={sitePath("account")}>Account</a><a href={sitePath("auth/login") + "?requestId=mission-1"}>Desktop sign in</a></main> }));
 vi.mock("./components/AccountPage", () => ({ AccountPage: () => <main>Personal profiles<a href={sitePath()}>Home</a></main> }));
@@ -16,6 +17,8 @@ beforeEach(() => {
 	(globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 	window.history.replaceState(null, "", sitePath());
 	vi.spyOn(window, "scrollTo").mockImplementation(() => {});
+	vi.spyOn(siteAudio, "playFromGesture").mockReturnValue(null);
+	vi.spyOn(siteAudio, "playOutcome").mockReturnValue(null);
 	container = document.createElement("div");
 	document.body.append(container);
 	root = createRoot(container);
@@ -28,6 +31,22 @@ afterEach(async () => {
 });
 
 describe("dynamic terminal navigation", () => {
+	it("maps internal navigation and both history directions without duplicate cues", async () => {
+		await act(async () => root.render(<SiteRouter />));
+		await act(async () => container.querySelector<HTMLAnchorElement>('a[href$="account"]')!.click());
+		await act(async () => container.querySelector<HTMLAnchorElement>(`a[href="${sitePath()}"]`)!.click());
+		expect(vi.mocked(siteAudio.playFromGesture).mock.calls.map(([cue]) => cue)).toEqual(["forward", "forward"]);
+		await act(async () => {
+			window.history.replaceState({ marsNavigationIndex: 1 }, "", sitePath("account"));
+			window.dispatchEvent(new PopStateEvent("popstate", { state: { marsNavigationIndex: 1 } }));
+		});
+		await act(async () => {
+			window.history.replaceState({ marsNavigationIndex: 2 }, "", sitePath());
+			window.dispatchEvent(new PopStateEvent("popstate", { state: { marsNavigationIndex: 2 } }));
+		});
+		expect(vi.mocked(siteAudio.playOutcome).mock.calls.map(([cue]) => cue)).toEqual(["back", "forward"]);
+	});
+
 	it("navigates internally through history and responds to back/forward events", async () => {
 		const push = vi.spyOn(window.history, "pushState");
 		await act(async () => root.render(<SiteRouter />));
@@ -85,5 +104,7 @@ describe("dynamic terminal navigation", () => {
 			anchor.remove();
 		}
 		expect(push).not.toHaveBeenCalled();
+		expect(siteAudio.playFromGesture).not.toHaveBeenCalled();
+		expect(siteAudio.playOutcome).not.toHaveBeenCalled();
 	});
 });
